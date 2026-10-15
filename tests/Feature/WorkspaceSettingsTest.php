@@ -20,6 +20,8 @@ function createWorkspaceSettingsTenant(string $role = CurrentTenant::ROLE_OWNER)
             'player_accent_label' => 'Workspace Test',
             'logo_width' => 120,
             'logo_position' => 'top-right',
+            'logo_offset_x' => 0,
+            'logo_offset_y' => 0,
             'player_behavior' => [
                 'default_media_fit' => 'cover',
                 'manifest_refresh_seconds' => 60,
@@ -76,6 +78,8 @@ it('updates workspace identity and branding settings', function (): void {
             'show_player_overlay' => true,
             'logo_width' => 180,
             'logo_position' => 'top-left',
+            'logo_offset_x' => 24,
+            'logo_offset_y' => -12,
             'billing_company_name' => 'Updated Co',
             'billing_tax_id' => 'TAX-123',
             'billing_address' => 'Jl. Testing 123',
@@ -93,6 +97,8 @@ it('updates workspace identity and branding settings', function (): void {
         ->and($tenant->settings['player_behavior']['manifest_refresh_seconds'])->toBe(120)
         ->and($tenant->settings['logo_width'])->toBe(180)
         ->and($tenant->settings['logo_position'])->toBe('top-left')
+        ->and($tenant->settings['logo_offset_x'])->toBe(24)
+        ->and($tenant->settings['logo_offset_y'])->toBe(-12)
         ->and($tenant->settings['billing_metadata']['company_name'])->toBe('Updated Co')
         ->and(ActivityLog::query()
             ->where('tenant_id', $tenant->id)
@@ -120,6 +126,8 @@ it('uploads a workspace logo into tenant branding storage', function (): void {
             'show_player_overlay' => true,
             'logo_width' => 120,
             'logo_position' => 'top-right',
+            'logo_offset_x' => 0,
+            'logo_offset_y' => 0,
             'billing_company_name' => null,
             'billing_tax_id' => null,
             'billing_address' => null,
@@ -151,6 +159,8 @@ it('prevents viewers from updating workspace settings', function (): void {
             'show_player_overlay' => true,
             'logo_width' => 120,
             'logo_position' => 'top-right',
+            'logo_offset_x' => 0,
+            'logo_offset_y' => 0,
             'billing_company_name' => null,
             'billing_tax_id' => null,
             'billing_address' => null,
@@ -181,6 +191,8 @@ it('requires workspace slug to be unique', function (): void {
             'show_player_overlay' => true,
             'logo_width' => 120,
             'logo_position' => 'top-right',
+            'logo_offset_x' => 0,
+            'logo_offset_y' => 0,
             'billing_company_name' => null,
             'billing_tax_id' => null,
             'billing_address' => null,
