@@ -1,0 +1,447 @@
+<script setup lang="ts">
+import InputError from '@/components/InputError.vue';
+import EmptyState from '@/components/EmptyState.vue';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Head, Link, useForm } from '@inertiajs/vue3';
+import { computed, ref } from 'vue';
+
+type ScreenOption = {
+    id: string;
+    name: string;
+    location: string | null;
+};
+
+type PlaylistOption = {
+    id: string;
+    name: string;
+};
+
+type Schedule = {
+    id: string;
+    screen_id: string;
+    playlist_id: string;
+    starts_at: string | null;
+    ends_at: string | null;
+    days_of_week: number[] | null;
+    start_time: string | null;
+    end_time: string | null;
+    priority: number;
+    is_active: boolean;
+    screen: ScreenOption;
+    playlist: PlaylistOption;
+};
+
+const props = defineProps<{
+    tenant: {
+        id: string;
+        name: string;
+    };
+    schedules: Schedule[];
+    screens: ScreenOption[];
+    playlists: PlaylistOption[];
+}>();
+
+const dayOptions = [
+    { value: 1, label: 'Mon' },
+    { value: 2, label: 'Tue' },
+    { value: 3, label: 'Wed' },
+    { value: 4, label: 'Thu' },
+    { value: 5, label: 'Fri' },
+    { value: 6, label: 'Sat' },
+    { value: 7, label: 'Sun' },
+];
+
+const editingId = ref<string | null>(null);
+
+const form = useForm({
+    screen_id: '',
+    playlist_id: '',
+    starts_at: '',
+    ends_at: '',
+    days_of_week: [1, 2, 3, 4, 5, 6, 7] as number[],
+    start_time: '00:00',
+    end_time: '23:59',
+    priority: 10,
+    is_active: true,
+});
+
+const editingSchedule = computed(() => {
+    return props.schedules.find((schedule) => schedule.id === editingId.value);
+});
+
+function resetForm(): void {
+    editingId.value = null;
+    form.reset();
+    form.clearErrors();
+    form.screen_id = '';
+    form.playlist_id = '';
+    form.starts_at = '';
+    form.ends_at = '';
+    form.days_of_week = [1, 2, 3, 4, 5, 6, 7];
+    form.start_time = '00:00';
+    form.end_time = '23:59';
+    form.priority = 10;
+    form.is_active = true;
+}
+
+function editSchedule(schedule: Schedule): void {
+    editingId.value = schedule.id;
+    form.clearErrors();
+    form.screen_id = schedule.screen_id;
+    form.playlist_id = schedule.playlist_id;
+    form.starts_at = schedule.starts_at ?? '';
+    form.ends_at = schedule.ends_at ?? '';
+    form.days_of_week = schedule.days_of_week ?? [1, 2, 3, 4, 5, 6, 7];
+    form.start_time = schedule.start_time?.slice(0, 5) ?? '00:00';
+    form.end_time = schedule.end_time?.slice(0, 5) ?? '23:59';
+    form.priority = schedule.priority;
+    form.is_active = schedule.is_active;
+}
+
+function toggleDay(day: number): void {
+    if (form.days_of_week.includes(day)) {
+        form.days_of_week = form.days_of_week.filter((value) => value !== day);
+        return;
+    }
+
+    form.days_of_week = [...form.days_of_week, day].sort();
+}
+
+function submit(): void {
+    if (editingId.value) {
+        form.put(`/schedules/${editingId.value}`, {
+            preserveScroll: true,
+            onSuccess: resetForm,
+        });
+
+        return;
+    }
+
+    form.post('/schedules', {
+        preserveScroll: true,
+        onSuccess: resetForm,
+    });
+}
+
+function destroySchedule(schedule: Schedule): void {
+    if (!window.confirm(`Delete schedule for "${schedule.screen.name}"?`)) {
+        return;
+    }
+
+    form.delete(`/schedules/${schedule.id}`, {
+        preserveScroll: true,
+        onSuccess: resetForm,
+    });
+}
+</script>
+
+<template>
+    <Head title="Schedules" />
+
+    <div class="flex h-full flex-1 flex-col gap-6 overflow-x-auto p-4">
+        <section class="flex flex-wrap items-end justify-between gap-3">
+            <div>
+                <h1 class="text-2xl font-semibold tracking-tight">
+                    Schedules
+                </h1>
+                <p class="text-sm text-muted-foreground">
+                    Assign playlist ke screen untuk {{ tenant.name }}.
+                </p>
+            </div>
+            <div class="flex gap-3 text-sm">
+                <Link
+                    href="/playlists"
+                    class="font-medium text-primary underline-offset-4 hover:underline"
+                >
+                    Playlists
+                </Link>
+                <Link
+                    href="/dashboard"
+                    class="font-medium text-primary underline-offset-4 hover:underline"
+                >
+                    Dashboard
+                </Link>
+            </div>
+        </section>
+
+        <section
+            class="grid gap-4 lg:grid-cols-[minmax(340px,460px)_minmax(0,1fr)]"
+        >
+            <form
+                class="rounded-lg border border-sidebar-border/70 p-4 dark:border-sidebar-border"
+                @submit.prevent="submit"
+            >
+                <div class="mb-4">
+                    <h2 class="font-medium">
+                        {{ editingSchedule ? 'Edit schedule' : 'New schedule' }}
+                    </h2>
+                    <p class="text-sm text-muted-foreground">
+                        Priority terbesar dipilih lebih dulu oleh player.
+                    </p>
+                </div>
+
+                <div class="space-y-4">
+                    <div
+                        v-if="screens.length === 0 || playlists.length === 0"
+                        class="rounded-md border bg-muted/35 p-3 text-sm text-muted-foreground"
+                    >
+                        <div class="font-medium text-foreground">
+                            Schedule butuh screen dan playlist.
+                        </div>
+                        <div class="mt-1">
+                            Buat minimal satu screen dan satu playlist berisi
+                            media sebelum mengaktifkan schedule.
+                        </div>
+                        <div class="mt-3 flex gap-2">
+                            <Link
+                                href="/screens"
+                                class="rounded-md border bg-background px-3 py-2 text-xs font-medium"
+                            >
+                                Screens
+                            </Link>
+                            <Link
+                                href="/playlists"
+                                class="rounded-md border bg-background px-3 py-2 text-xs font-medium"
+                            >
+                                Playlists
+                            </Link>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="mb-1 block text-sm font-medium">
+                            Screen
+                        </label>
+                        <select
+                            v-model="form.screen_id"
+                            class="border-input h-9 w-full rounded-md border bg-background px-3 py-1 text-sm text-foreground shadow-xs outline-none option:bg-background option:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                        >
+                            <option value="">Select screen</option>
+                            <option
+                                v-for="screen in screens"
+                                :key="screen.id"
+                                :value="screen.id"
+                            >
+                                {{ screen.name }}
+                            </option>
+                        </select>
+                        <InputError :message="form.errors.screen_id" />
+                    </div>
+
+                    <div>
+                        <label class="mb-1 block text-sm font-medium">
+                            Playlist
+                        </label>
+                        <select
+                            v-model="form.playlist_id"
+                            class="border-input h-9 w-full rounded-md border bg-background px-3 py-1 text-sm text-foreground shadow-xs outline-none option:bg-background option:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                        >
+                            <option value="">Select playlist</option>
+                            <option
+                                v-for="playlist in playlists"
+                                :key="playlist.id"
+                                :value="playlist.id"
+                            >
+                                {{ playlist.name }}
+                            </option>
+                        </select>
+                        <InputError :message="form.errors.playlist_id" />
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="mb-1 block text-sm font-medium">
+                                Starts at
+                            </label>
+                            <Input v-model="form.starts_at" type="datetime-local" />
+                            <InputError :message="form.errors.starts_at" />
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-sm font-medium">
+                                Ends at
+                            </label>
+                            <Input v-model="form.ends_at" type="datetime-local" />
+                            <InputError :message="form.errors.ends_at" />
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="mb-1 block text-sm font-medium">
+                                Daily start
+                            </label>
+                            <Input v-model="form.start_time" type="time" />
+                            <InputError :message="form.errors.start_time" />
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-sm font-medium">
+                                Daily end
+                            </label>
+                            <Input v-model="form.end_time" type="time" />
+                            <InputError :message="form.errors.end_time" />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="mb-2 block text-sm font-medium">
+                            Days
+                        </label>
+                        <div class="flex flex-wrap gap-2">
+                            <button
+                                v-for="day in dayOptions"
+                                :key="day.value"
+                                type="button"
+                                class="rounded-md border px-3 py-1.5 text-sm"
+                                :class="
+                                    form.days_of_week.includes(day.value)
+                                        ? 'bg-primary text-primary-foreground'
+                                        : 'bg-background'
+                                "
+                                @click="toggleDay(day.value)"
+                            >
+                                {{ day.label }}
+                            </button>
+                        </div>
+                        <InputError :message="form.errors.days_of_week" />
+                    </div>
+
+                    <div>
+                        <label class="mb-1 block text-sm font-medium">
+                            Priority
+                        </label>
+                        <Input v-model="form.priority" type="number" min="0" />
+                        <InputError :message="form.errors.priority" />
+                    </div>
+
+                    <label class="flex items-center gap-2 text-sm">
+                        <input
+                            v-model="form.is_active"
+                            type="checkbox"
+                            class="size-4 rounded border-input"
+                        />
+                        Active
+                    </label>
+
+                    <div class="flex gap-2">
+                        <Button type="submit" :disabled="form.processing">
+                            {{ editingSchedule ? 'Update' : 'Create' }}
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            :disabled="form.processing"
+                            @click="resetForm"
+                        >
+                            Cancel
+                        </Button>
+                    </div>
+                </div>
+            </form>
+
+            <div
+                class="overflow-hidden rounded-lg border border-sidebar-border/70 dark:border-sidebar-border"
+            >
+                <div class="border-b px-4 py-3">
+                    <h2 class="font-medium">Schedule list</h2>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full min-w-[900px] text-sm">
+                        <thead
+                            class="bg-muted/50 text-left text-muted-foreground"
+                        >
+                            <tr>
+                                <th class="px-4 py-3 font-medium">Target</th>
+                                <th class="px-4 py-3 font-medium">Window</th>
+                                <th class="px-4 py-3 font-medium">Priority</th>
+                                <th class="px-4 py-3 font-medium">Status</th>
+                                <th class="px-4 py-3 text-right font-medium">
+                                    Actions
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr
+                                v-for="schedule in schedules"
+                                :key="schedule.id"
+                                class="border-t align-top"
+                            >
+                                <td class="px-4 py-3">
+                                    <div class="font-medium">
+                                        {{ schedule.screen.name }}
+                                    </div>
+                                    <div class="text-xs text-muted-foreground">
+                                        {{ schedule.playlist.name }}
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <div>
+                                        {{ schedule.starts_at ?? 'Always' }} -
+                                        {{ schedule.ends_at ?? 'Open' }}
+                                    </div>
+                                    <div class="text-xs text-muted-foreground">
+                                        {{ schedule.start_time ?? '00:00' }} -
+                                        {{ schedule.end_time ?? '23:59' }}
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3">
+                                    {{ schedule.priority }}
+                                </td>
+                                <td class="px-4 py-3">
+                                    <span
+                                        class="inline-flex rounded-full px-2 py-1 text-xs font-medium"
+                                        :class="
+                                            schedule.is_active
+                                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                                                : 'bg-zinc-100 text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300'
+                                        "
+                                    >
+                                        {{
+                                            schedule.is_active
+                                                ? 'active'
+                                                : 'inactive'
+                                        }}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3 text-right">
+                                    <div class="flex justify-end gap-2">
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            @click="editSchedule(schedule)"
+                                        >
+                                            Edit
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="destructive"
+                                            @click="destroySchedule(schedule)"
+                                        >
+                                            Delete
+                                        </Button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr v-if="schedules.length === 0">
+                                <td
+                                    colspan="5"
+                                    class="px-4 py-6"
+                                >
+                                    <EmptyState
+                                        title="Belum ada schedule aktif"
+                                        description="Schedule menghubungkan playlist ke screen. Tanpa schedule, player belum tahu konten mana yang harus tampil."
+                                        action-label="Pilih screen dan playlist"
+                                        action-href="/schedules"
+                                        secondary-label="Manage playlists"
+                                        secondary-href="/playlists"
+                                    />
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </div>
+</template>
