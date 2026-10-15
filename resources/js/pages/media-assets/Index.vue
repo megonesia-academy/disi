@@ -4,6 +4,17 @@ import EmptyState from '@/components/EmptyState.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import {
+    Clock3,
+    ExternalLink,
+    Globe2,
+    HardDrive,
+    ImageIcon,
+    Music2,
+    Pencil,
+    Trash2,
+    Video,
+} from '@lucide/vue';
 import { computed, ref } from 'vue';
 
 type MediaAsset = {
@@ -247,133 +258,166 @@ function readableSize(size: number | null): string {
                 </div>
             </form>
 
-            <div
-                class="overflow-hidden rounded-lg border border-sidebar-border/70 dark:border-sidebar-border"
-            >
-                <div class="border-b px-4 py-3">
-                    <h2 class="font-medium">Media list</h2>
+            <div class="min-w-0">
+                <div class="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                        <h2 class="font-medium">Media list</h2>
+                        <p class="text-xs text-muted-foreground">
+                            Preview dan kelola konten signage.
+                        </p>
+                    </div>
+                    <span class="text-xs text-muted-foreground">
+                        {{ mediaAssets.length }} media
+                    </span>
                 </div>
 
-                <div class="overflow-x-auto">
-                    <table class="w-full min-w-[900px] text-sm">
-                        <thead
-                            class="bg-muted/50 text-left text-muted-foreground"
-                        >
-                            <tr>
-                                <th class="px-4 py-3 font-medium">Media</th>
-                                <th class="px-4 py-3 font-medium">Type</th>
-                                <th class="px-4 py-3 font-medium">Size</th>
-                                <th class="px-4 py-3 font-medium">Status</th>
-                                <th class="px-4 py-3 font-medium">
-                                    Duration
-                                </th>
-                                <th class="px-4 py-3 text-right font-medium">
-                                    Actions
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr
-                                v-for="asset in mediaAssets"
-                                :key="asset.id"
-                                class="border-t"
+                <div v-if="mediaAssets.length" class="grid gap-4 2xl:grid-cols-2">
+                    <article
+                        v-for="asset in mediaAssets"
+                        :key="asset.id"
+                        class="group overflow-hidden rounded-lg border bg-background shadow-sm transition-shadow hover:shadow-md"
+                    >
+                        <div class="relative aspect-video overflow-hidden bg-zinc-950">
+                            <img
+                                v-if="asset.type === 'image'"
+                                :src="asset.url"
+                                :alt="asset.name"
+                                class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                                loading="lazy"
+                            />
+                            <video
+                                v-else-if="asset.type === 'video'"
+                                :src="asset.url"
+                                class="h-full w-full object-cover"
+                                muted
+                                playsinline
+                                preload="metadata"
+                            />
+                            <div
+                                v-else
+                                class="grid h-full place-items-center bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-950 text-white"
                             >
-                                <td class="px-4 py-3">
-                                    <div class="font-medium">
-                                        {{ asset.name }}
+                                <div class="text-center">
+                                    <Music2 v-if="asset.type === 'audio'" class="mx-auto size-10 text-cyan-300" />
+                                    <Globe2 v-else class="mx-auto size-10 text-violet-300" />
+                                    <p class="mt-3 text-sm font-medium">
+                                        {{ asset.type === 'audio' ? 'Audio content' : 'Web content' }}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="absolute left-3 top-3 flex items-center gap-2">
+                                <span class="inline-flex items-center gap-1.5 rounded-md bg-black/70 px-2 py-1 text-xs font-medium text-white backdrop-blur-sm">
+                                    <ImageIcon v-if="asset.type === 'image'" class="size-3.5" />
+                                    <Video v-else-if="asset.type === 'video'" class="size-3.5" />
+                                    <Music2 v-else-if="asset.type === 'audio'" class="size-3.5" />
+                                    <Globe2 v-else class="size-3.5" />
+                                    {{ asset.type }}
+                                </span>
+                            </div>
+
+                            <span
+                                class="absolute right-3 top-3 inline-flex rounded-md px-2 py-1 text-xs font-medium shadow-sm"
+                                :class="
+                                    asset.availability.status === 'ok'
+                                        ? 'bg-emerald-500 text-white'
+                                        : asset.availability.status === 'missing'
+                                          ? 'bg-red-500 text-white'
+                                          : 'bg-amber-400 text-amber-950'
+                                "
+                            >
+                                {{ asset.availability.label }}
+                            </span>
+                        </div>
+
+                        <div class="p-4">
+                            <div class="min-w-0">
+                                <h3 class="truncate font-semibold" :title="asset.name">
+                                    {{ asset.name }}
+                                </h3>
+                                <p class="mt-0.5 truncate text-xs text-muted-foreground" :title="asset.path">
+                                    {{ asset.mime_type ?? asset.path }}
+                                </p>
+                            </div>
+
+                            <div class="mt-4 grid grid-cols-3 gap-2 rounded-md bg-muted/40 p-3 text-xs">
+                                <div class="min-w-0">
+                                    <div class="flex items-center gap-1 text-muted-foreground">
+                                        <HardDrive class="size-3.5" />
+                                        Size
                                     </div>
-                                    <a
-                                        :href="asset.url"
-                                        target="_blank"
-                                        class="max-w-md truncate text-xs text-primary underline-offset-4 hover:underline"
-                                    >
-                                        {{ asset.path }}
-                                    </a>
-                                </td>
-                                <td class="px-4 py-3">
-                                    <span
-                                        class="inline-flex rounded-full bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
-                                    >
-                                        {{ asset.type }}
-                                    </span>
-                                    <div class="mt-1 text-xs text-muted-foreground">
-                                        {{ asset.mime_type ?? '-' }}
+                                    <p class="mt-1 truncate font-medium">
+                                        {{ readableSize(asset.size) }}
+                                    </p>
+                                </div>
+                                <div class="min-w-0 border-l pl-2">
+                                    <div class="flex items-center gap-1 text-muted-foreground">
+                                        <Clock3 class="size-3.5" />
+                                        Duration
                                     </div>
-                                </td>
-                                <td class="px-4 py-3">
-                                    <div>{{ readableSize(asset.size) }}</div>
-                                    <div class="text-xs text-muted-foreground">
-                                        <template
-                                            v-if="asset.width && asset.height"
-                                        >
-                                            {{ asset.width }} x
-                                            {{ asset.height }}
-                                        </template>
-                                    </div>
-                                </td>
-                                <td class="px-4 py-3">
-                                    <span
-                                        class="inline-flex rounded-full px-2 py-1 text-xs font-medium"
-                                        :class="
-                                            asset.availability.status === 'ok'
-                                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
-                                                : asset.availability.status ===
-                                                    'missing'
-                                                  ? 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300'
-                                                  : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
-                                        "
-                                    >
-                                        {{ asset.availability.label }}
-                                    </span>
-                                    <div
-                                        class="mt-1 max-w-60 text-xs text-muted-foreground"
-                                    >
-                                        {{ asset.availability.message }}
-                                    </div>
-                                </td>
-                                <td class="px-4 py-3">
-                                    {{
-                                        asset.duration_seconds
-                                            ? `${asset.duration_seconds}s`
-                                            : '-'
-                                    }}
-                                </td>
-                                <td class="px-4 py-3 text-right">
-                                    <div class="flex justify-end gap-2">
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            @click="editAsset(asset)"
-                                        >
-                                            Edit
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            variant="destructive"
-                                            @click="destroyAsset(asset)"
-                                        >
-                                            Delete
-                                        </Button>
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr v-if="mediaAssets.length === 0">
-                                <td
-                                    colspan="6"
-                                    class="px-4 py-6"
+                                    <p class="mt-1 truncate font-medium">
+                                        {{ asset.duration_seconds ? `${asset.duration_seconds}s` : '-' }}
+                                    </p>
+                                </div>
+                                <div class="min-w-0 border-l pl-2">
+                                    <div class="text-muted-foreground">Resolution</div>
+                                    <p class="mt-1 truncate font-medium">
+                                        {{ asset.width && asset.height ? `${asset.width} x ${asset.height}` : '-' }}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <p class="mt-3 min-h-10 text-xs leading-5 text-muted-foreground">
+                                {{ asset.availability.message }}
+                            </p>
+
+                            <div class="mt-4 flex items-center gap-2 border-t pt-4">
+                                <a
+                                    :href="asset.url"
+                                    target="_blank"
+                                    class="inline-flex h-9 items-center gap-2 rounded-md border bg-background px-3 text-sm font-medium shadow-xs transition-colors hover:bg-accent"
                                 >
-                                    <EmptyState
-                                        title="Upload media pertama"
-                                        description="Tambahkan gambar, video, audio, atau URL web. Setelah media tersedia, kamu bisa memasukkannya ke playlist."
-                                        action-label="Isi form media"
-                                        action-href="/media-assets"
-                                        secondary-label="Create playlist"
-                                        secondary-href="/playlists"
-                                    />
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                                    <ExternalLink class="size-4" />
+                                    Preview
+                                </a>
+                                <div class="ml-auto flex gap-1">
+                                    <Button
+                                        type="button"
+                                        size="icon"
+                                        variant="ghost"
+                                        title="Edit media"
+                                        @click="editAsset(asset)"
+                                    >
+                                        <Pencil class="size-4" />
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        size="icon"
+                                        variant="ghost"
+                                        class="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                        title="Delete media"
+                                        @click="destroyAsset(asset)"
+                                    >
+                                        <Trash2 class="size-4" />
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+                </div>
+
+                <div
+                    v-else
+                    class="rounded-lg border border-sidebar-border/70 bg-background p-4 dark:border-sidebar-border"
+                >
+                    <EmptyState
+                        title="Upload media pertama"
+                        description="Tambahkan gambar, video, audio, atau URL web. Setelah media tersedia, kamu bisa memasukkannya ke playlist."
+                        action-label="Isi form media"
+                        action-href="/media-assets"
+                        secondary-label="Create playlist"
+                        secondary-href="/playlists"
+                    />
                 </div>
             </div>
         </section>

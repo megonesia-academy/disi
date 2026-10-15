@@ -5,12 +5,21 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 type PairingStatus = {
     status: 'waiting' | 'paired' | 'expired';
     player_url: string | null;
+    connection?: DisplayConnection;
 };
+
+type DisplayConnection = {
+    device_key: string;
+    token: string;
+};
+
+const STORAGE_KEY = 'disi.display.connection.v1';
 
 const props = defineProps<{
     code: string;
     token: string;
     statusUrl: string;
+    resumeUrl: string;
     pairingUrl: string;
     qrSvg: string;
     expiresAt: string;
@@ -19,6 +28,7 @@ const props = defineProps<{
 const status = ref<'waiting' | 'paired' | 'expired'>('waiting');
 const secondsLeft = ref(0);
 const errorMessage = ref<string | null>(null);
+const isResuming = ref(true);
 
 let pollTimer: number | undefined;
 let countdownTimer: number | undefined;
@@ -55,7 +65,14 @@ async function pollStatus(): Promise<void> {
         errorMessage.value = null;
 
         if (payload.status === 'paired' && payload.player_url) {
-            window.location.href = payload.player_url;
+            if (payload.connection) {
+                window.localStorage.setItem(
+                    STORAGE_KEY,
+                    JSON.stringify(payload.connection),
+                );
+            }
+
+            window.location.replace(payload.player_url);
         }
     } catch (error) {
         errorMessage.value =
@@ -63,12 +80,80 @@ async function pollStatus(): Promise<void> {
     }
 }
 
+function savedConnection(): DisplayConnection | null {
+    const value = window.localStorage.getItem(STORAGE_KEY);
+
+    if (!value) {
+        return null;
+    }
+
+    try {
+        const connection = JSON.parse(value) as Partial<DisplayConnection>;
+
+        if (
+            typeof connection.device_key === 'string' &&
+            typeof connection.token === 'string'
+        ) {
+            return connection as DisplayConnection;
+        }
+    } catch {
+        // Invalid browser data should return the display to pairing mode.
+    }
+
+    window.localStorage.removeItem(STORAGE_KEY);
+
+    return null;
+}
+
+async function resumeDisplay(): Promise<boolean> {
+    const connection = savedConnection();
+
+    if (!connection) {
+        return false;
+    }
+
+    try {
+        const response = await fetch(props.resumeUrl, {
+            method: 'POST',
+            headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(connection),
+        });
+
+        if (!response.ok) {
+            window.localStorage.removeItem(STORAGE_KEY);
+
+            return false;
+        }
+
+        const payload = (await response.json()) as PairingStatus;
+
+        if (payload.status === 'paired' && payload.player_url) {
+            window.location.replace(payload.player_url);
+
+            return true;
+        }
+    } catch {
+        errorMessage.value = 'Koneksi tersimpan belum dapat divalidasi.';
+    }
+
+    return false;
+}
+
 function refreshSession(): void {
     window.location.reload();
 }
 
-onMounted(() => {
+onMounted(async () => {
     updateCountdown();
+
+    if (await resumeDisplay()) {
+        return;
+    }
+
+    isResuming.value = false;
     void pollStatus();
 
     countdownTimer = window.setInterval(updateCountdown, 1_000);
@@ -95,7 +180,19 @@ onBeforeUnmount(() => {
         <section
             class="grid h-screen w-screen place-items-center px-8 py-10 text-center"
         >
-            <div class="w-full max-w-5xl">
+            <div v-if="isResuming" class="w-full max-w-2xl">
+                <p class="text-sm font-medium uppercase tracking-[0.28em] text-cyan-300">
+                    Connect display
+                </p>
+                <h1 class="mt-6 text-4xl font-semibold tracking-normal sm:text-6xl">
+                    Menyambungkan kembali...
+                </h1>
+                <p class="mt-5 text-lg text-zinc-400">
+                    Memeriksa koneksi display yang tersimpan di TV ini.
+                </p>
+            </div>
+
+            <div v-else class="w-full max-w-5xl">
                 <div
                     class="mx-auto grid max-w-4xl items-center gap-10 md:grid-cols-[1fr_320px]"
                 >

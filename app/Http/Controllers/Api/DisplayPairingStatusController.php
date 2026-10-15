@@ -35,6 +35,10 @@ class DisplayPairingStatusController extends Controller
                 'device' => $pairingSession->device->key,
                 'token' => $pairingSession->device->player_secret,
             ]),
+            'connection' => [
+                'device_key' => $pairingSession->device->key,
+                'token' => $pairingSession->device->player_secret,
+            ],
         ]);
     }
 }

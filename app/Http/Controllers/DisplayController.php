@@ -28,6 +28,7 @@ class DisplayController extends Controller
             'code' => $pairingSession->code,
             'token' => $pairingSession->token,
             'statusUrl' => route('api.display.status', ['token' => $pairingSession->token]),
+            'resumeUrl' => route('api.display.resume'),
             'pairingUrl' => $pairingUrl,
             'qrSvg' => $this->qrSvg($pairingUrl),
             'expiresAt' => $pairingSession->expires_at->toISOString(),

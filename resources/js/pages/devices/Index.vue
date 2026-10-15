@@ -4,6 +4,15 @@ import EmptyState from '@/components/EmptyState.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import {
+    Activity,
+    Clock3,
+    ExternalLink,
+    MapPin,
+    Monitor,
+    Pencil,
+    Trash2,
+} from '@lucide/vue';
 import { computed, ref } from 'vue';
 
 type ScreenOption = {
@@ -78,8 +87,8 @@ function editDevice(device: Device): void {
 }
 
 function submit(): void {
-    if (editingId.value) {
-        form.put(`/devices/${editingId.value}`, {
+    if (editingDevice.value) {
+        form.put(`/devices/${encodeURIComponent(editingDevice.value.key)}`, {
             preserveScroll: true,
             onSuccess: resetForm,
         });
@@ -98,7 +107,7 @@ function destroyDevice(device: Device): void {
         return;
     }
 
-    form.delete(`/devices/${device.id}`, {
+    form.delete(`/devices/${encodeURIComponent(device.key)}`, {
         preserveScroll: true,
         onSuccess: resetForm,
     });
@@ -296,140 +305,149 @@ function openPairingCode(): void {
                 </div>
             </form>
 
-            <div
-                class="overflow-hidden rounded-lg border bg-background shadow-sm"
-            >
-                <div class="flex items-center justify-between border-b px-4 py-3">
+            <div class="min-w-0">
+                <div class="mb-3 flex items-center justify-between">
                     <h2 class="font-semibold tracking-tight">Device list</h2>
                     <span class="text-xs text-muted-foreground">
                         {{ devices.length }} device
                     </span>
                 </div>
 
-                <div class="overflow-x-auto">
-                    <table class="w-full min-w-[860px] text-sm">
-                        <thead
-                            class="bg-muted/50 text-left text-muted-foreground"
-                        >
-                            <tr>
-                                <th class="px-4 py-3 font-medium">Device</th>
-                                <th class="px-4 py-3 font-medium">Screen</th>
-                                <th class="px-4 py-3 font-medium">Status</th>
-                                <th class="px-4 py-3 font-medium">Health</th>
-                                <th class="px-4 py-3 font-medium">
-                                    Last seen
-                                </th>
-                                <th class="px-4 py-3 text-right font-medium">
-                                    Actions
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr
-                                v-for="device in devices"
-                                :key="device.id"
-                                class="border-t"
-                            >
-                                <td class="px-4 py-3">
-                                    <div class="font-medium">
+                <div v-if="devices.length" class="grid gap-4 2xl:grid-cols-2">
+                    <article
+                        v-for="device in devices"
+                        :key="device.id"
+                        class="overflow-hidden rounded-lg border bg-background shadow-sm transition-shadow hover:shadow-md"
+                    >
+                        <div class="flex items-start justify-between gap-4 p-5">
+                            <div class="flex min-w-0 gap-3">
+                                <div class="grid size-10 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+                                    <Monitor class="size-5" />
+                                </div>
+                                <div class="min-w-0">
+                                    <h3 class="truncate font-semibold">
                                         {{ device.name }}
-                                    </div>
-                                    <div class="text-xs text-muted-foreground">
+                                    </h3>
+                                    <p class="truncate font-mono text-xs text-muted-foreground">
                                         {{ device.key }}
-                                    </div>
-                                </td>
-                                <td class="px-4 py-3">
-                                    <div>{{ device.screen?.name ?? '-' }}</div>
-                                    <div class="text-xs text-muted-foreground">
-                                        {{ device.screen?.location ?? '' }}
-                                    </div>
-                                </td>
-                                <td class="px-4 py-3">
-                                    <span
-                                        class="inline-flex rounded-full px-2 py-1 text-xs font-medium"
-                                        :class="
-                                            device.status === 'online'
-                                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
-                                                : 'bg-zinc-100 text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300'
-                                        "
-                                    >
-                                        {{ device.status }}
-                                    </span>
-                                </td>
-                                <td class="px-4 py-3">
-                                    <div>
+                                    </p>
+                                </div>
+                            </div>
+                            <span
+                                class="inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
+                                :class="
+                                    device.status === 'online'
+                                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                                        : 'bg-zinc-100 text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300'
+                                "
+                            >
+                                <span
+                                    class="size-1.5 rounded-full bg-current"
+                                />
+                                {{ device.status }}
+                            </span>
+                        </div>
+
+                        <div class="grid gap-3 border-y bg-muted/20 p-5 sm:grid-cols-2">
+                            <div class="flex min-w-0 gap-2.5">
+                                <MapPin class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                                <div class="min-w-0">
+                                    <p class="text-xs text-muted-foreground">Screen</p>
+                                    <p class="truncate text-sm font-medium">
+                                        {{ device.screen?.name ?? 'Unassigned' }}
+                                    </p>
+                                    <p v-if="device.screen?.location" class="truncate text-xs text-muted-foreground">
+                                        {{ device.screen.location }}
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="flex min-w-0 gap-2.5">
+                                <Clock3 class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                                <div>
+                                    <p class="text-xs text-muted-foreground">Last seen</p>
+                                    <p class="text-sm font-medium">
+                                        {{ device.last_seen_at ?? 'Never' }}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="p-5">
+                            <div class="flex items-start gap-2.5">
+                                <Activity class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                                <div>
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <span class="text-xs font-medium text-muted-foreground">Health</span>
                                         <span
-                                            class="inline-flex rounded-full px-2 py-1 text-xs font-medium"
+                                            class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
                                             :class="
                                                 device.health.status === 'ready'
                                                     ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
-                                                    : device.health.status ===
-                                                        'offline'
+                                                    : device.health.status === 'offline'
                                                       ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
                                                       : 'bg-zinc-100 text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300'
                                             "
                                         >
                                             {{ device.health.label }}
                                         </span>
-                                        <div
-                                            class="mt-1 max-w-56 text-xs text-muted-foreground"
-                                        >
-                                            {{ device.health.message }}
-                                        </div>
                                     </div>
-                                </td>
-                                <td class="px-4 py-3">
-                                    {{ device.last_seen_at ?? 'Never' }}
-                                </td>
-                                <td class="px-4 py-3 text-right">
-                                    <div class="flex justify-end gap-2">
-                                        <a
-                                            :href="device.monitor_url"
-                                            class="rounded-md border px-3 py-1.5 text-xs font-medium"
-                                        >
-                                            Monitor
-                                        </a>
-                                        <a
-                                            :href="device.player_url"
-                                            target="_blank"
-                                            class="rounded-md border px-3 py-1.5 text-xs font-medium"
-                                        >
-                                            Player
-                                        </a>
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            @click="editDevice(device)"
-                                        >
-                                            Edit
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            variant="destructive"
-                                            @click="destroyDevice(device)"
-                                        >
-                                            Delete
-                                        </Button>
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr v-if="devices.length === 0">
-                                <td
-                                    colspan="6"
-                                    class="px-4 py-6"
+                                    <p class="mt-1 text-xs leading-5 text-muted-foreground">
+                                        {{ device.health.message }}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="mt-5 flex flex-wrap items-center gap-2 border-t pt-4">
+                                <a
+                                    :href="device.monitor_url"
+                                    class="inline-flex h-9 items-center gap-2 rounded-md border bg-background px-3 text-sm font-medium shadow-xs transition-colors hover:bg-accent"
                                 >
-                                    <EmptyState
-                                        title="Belum ada display tersambung"
-                                        description="Buka /display di TV Android, lalu scan QR atau masukkan kode pairing di panel Pair New Display."
-                                        action-label="Open display page"
-                                        action-href="/display"
-                                        secondary-label="Create screen"
-                                        secondary-href="/screens"
-                                    />
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                                    <Monitor class="size-4" />
+                                    Monitor
+                                </a>
+                                <a
+                                    :href="device.player_url"
+                                    target="_blank"
+                                    class="inline-flex h-9 items-center gap-2 rounded-md border bg-background px-3 text-sm font-medium shadow-xs transition-colors hover:bg-accent"
+                                >
+                                    <ExternalLink class="size-4" />
+                                    Player
+                                </a>
+                                <div class="ml-auto flex gap-1">
+                                    <Button
+                                        type="button"
+                                        size="icon"
+                                        variant="ghost"
+                                        title="Edit device"
+                                        @click="editDevice(device)"
+                                    >
+                                        <Pencil class="size-4" />
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        size="icon"
+                                        variant="ghost"
+                                        class="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                        title="Delete device"
+                                        @click="destroyDevice(device)"
+                                    >
+                                        <Trash2 class="size-4" />
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+                </div>
+
+                <div v-else class="rounded-lg border bg-background p-4 shadow-sm">
+                    <EmptyState
+                        title="Belum ada display tersambung"
+                        description="Buka /display di TV Android, lalu scan QR atau masukkan kode pairing di panel Pair New Display."
+                        action-label="Open display page"
+                        action-href="/display"
+                        secondary-label="Create screen"
+                        secondary-href="/screens"
+                    />
                 </div>
             </div>
         </section>

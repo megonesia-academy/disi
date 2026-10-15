@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Device;
+use App\Models\DeviceCommand;
 use App\Models\DisplayPairingSession;
 use App\Models\Screen;
 use App\Models\Tenant;
@@ -43,6 +44,7 @@ it('shows a display pairing code and qr payload', function (): void {
             ->has('code')
             ->has('token')
             ->has('statusUrl')
+            ->has('resumeUrl')
             ->has('pairingUrl')
             ->has('qrSvg')
             ->has('expiresAt'));
@@ -92,7 +94,82 @@ it('returns player url after the display is paired', function (): void {
     $this->getJson(route('api.display.status', ['token' => $pairingSession->token]))
         ->assertOk()
         ->assertJsonPath('status', 'paired')
-        ->assertJsonStructure(['player_url']);
+        ->assertJsonStructure([
+            'player_url',
+            'connection' => ['device_key', 'token'],
+        ]);
+});
+
+it('resumes a paired display with its saved browser connection', function (): void {
+    [$user, $tenant, $screen] = createPairingTenant();
+
+    $device = Device::query()->create([
+        'tenant_id' => $tenant->id,
+        'screen_id' => $screen->id,
+        'name' => 'Lobby TV',
+        'key' => 'lobby-tv',
+        'player_secret' => Str::random(48),
+        'status' => Device::STATUS_OFFLINE,
+        'is_active' => true,
+    ]);
+
+    $this->postJson(route('api.display.resume'), [
+        'device_key' => $device->key,
+        'token' => $device->player_secret,
+    ])
+        ->assertOk()
+        ->assertJsonPath('status', 'paired')
+        ->assertJsonPath('player_url', route('player.show', [
+            'device' => $device->key,
+            'token' => $device->player_secret,
+        ]));
+});
+
+it('rejects an invalid saved display connection', function (): void {
+    $this->postJson(route('api.display.resume'), [
+        'device_key' => 'unknown-display',
+        'token' => Str::random(48),
+    ])
+        ->assertNotFound()
+        ->assertJsonPath('status', 'invalid');
+});
+
+it('deletes a device by its route key with related pairing data', function (): void {
+    [$user, $tenant, $screen] = createPairingTenant();
+
+    $device = Device::query()->create([
+        'tenant_id' => $tenant->id,
+        'screen_id' => $screen->id,
+        'name' => 'Lobby TV',
+        'key' => 'lobby-tv-delete',
+        'player_secret' => Str::random(48),
+        'status' => Device::STATUS_OFFLINE,
+        'is_active' => true,
+    ]);
+
+    $pairingSession = DisplayPairingSession::query()->create([
+        'code' => 'DEL-123',
+        'token' => Str::random(64),
+        'device_id' => $device->id,
+        'expires_at' => now()->addMinutes(10),
+        'paired_at' => now(),
+    ]);
+
+    DeviceCommand::query()->create([
+        'tenant_id' => $tenant->id,
+        'device_id' => $device->id,
+        'type' => DeviceCommand::TYPE_RELOAD,
+        'status' => DeviceCommand::STATUS_QUEUED,
+    ]);
+
+    $this->actingAs($user)
+        ->withSession([CurrentTenant::SESSION_KEY => $tenant->id])
+        ->delete(route('devices.destroy', $device))
+        ->assertRedirect(route('devices.index'));
+
+    expect(Device::query()->whereKey($device->id)->exists())->toBeFalse()
+        ->and(DeviceCommand::query()->where('device_id', $device->id)->exists())->toBeFalse()
+        ->and($pairingSession->fresh()?->device_id)->toBeNull();
 });
 
 it('prevents viewers from pairing displays', function (): void {
