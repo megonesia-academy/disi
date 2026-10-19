@@ -1,9 +1,22 @@
 <script setup lang="ts">
 import InputError from '@/components/InputError.vue';
+import OverlayCard from '@/components/playlists/OverlayCard.vue';
 import SubmitButton from '@/components/SubmitButton.vue';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+    createOverlay,
+    MAX_OVERLAYS,
+    OVERLAY_LABELS,
+    OVERLAY_TYPES,
+    type ApiConnectionOption,
+    type MediaAssetOption,
+    type OverlayEntry,
+    type OverlayType,
+} from '@/lib/overlays';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { Save } from '@lucide/vue';
+import { ref } from 'vue';
 
 const props = defineProps<{
     tenant: {
@@ -33,9 +46,70 @@ const props = defineProps<{
                 billing_address: string;
                 phone: string;
             };
+            overlay_defaults: OverlayEntry[];
         };
     };
+    mediaAssets: MediaAssetOption[];
+    apiConnections: ApiConnectionOption[];
 }>();
+
+const newOverlayType = ref<OverlayType>('clock');
+
+function normalizedDefault(overlay: OverlayEntry): OverlayEntry {
+    const defaults = createOverlay(
+        overlay.type as OverlayType,
+        props.apiConnections,
+        props.mediaAssets,
+    );
+
+    return {
+        ...overlay,
+        config: {
+            ...defaults.config,
+            ...overlay.config,
+            schedule: overlay.config?.schedule ?? {},
+            offset_x: overlay.config?.offset_x ?? 0,
+            offset_y: overlay.config?.offset_y ?? 0,
+        },
+    };
+}
+
+function addOverlayDefault(): void {
+    if (form.overlay_defaults.length >= MAX_OVERLAYS) {
+        return;
+    }
+
+    form.overlay_defaults.push(
+        createOverlay(
+            newOverlayType.value,
+            props.apiConnections,
+            props.mediaAssets,
+        ),
+    );
+}
+
+function duplicateOverlayDefault(index: number): void {
+    if (form.overlay_defaults.length >= MAX_OVERLAYS) {
+        return;
+    }
+
+    const copy = JSON.parse(
+        JSON.stringify(form.overlay_defaults[index]),
+    ) as OverlayEntry;
+    delete copy.id;
+    form.overlay_defaults.splice(index + 1, 0, copy);
+}
+
+function moveOverlayDefault(index: number, direction: 'up' | 'down'): void {
+    const target = direction === 'up' ? index - 1 : index + 1;
+
+    if (target < 0 || target >= form.overlay_defaults.length) {
+        return;
+    }
+
+    const [moved] = form.overlay_defaults.splice(index, 1);
+    form.overlay_defaults.splice(target, 0, moved);
+}
 
 const form = useForm({
     name: props.tenant.name,
@@ -58,6 +132,9 @@ const form = useForm({
     billing_tax_id: props.tenant.settings.billing_metadata.tax_id,
     billing_address: props.tenant.settings.billing_metadata.billing_address,
     billing_phone: props.tenant.settings.billing_metadata.phone,
+    overlay_defaults: (props.tenant.settings.overlay_defaults ?? []).map(
+        normalizedDefault,
+    ),
 });
 
 function submit(): void {
@@ -326,6 +403,65 @@ function updateLogo(event: Event): void {
                                 Show player overlay
                             </label>
                         </div>
+                    </div>
+
+                    <div class="rounded-lg border p-4">
+                        <h3 class="font-semibold tracking-tight">
+                            Overlay default workspace
+                        </h3>
+                        <p class="mt-1 text-xs text-muted-foreground">
+                            Tampil di semua playlist, di atas overlay milik
+                            playlist.
+                        </p>
+                        <div class="mt-3 flex gap-2">
+                            <select
+                                v-model="newOverlayType"
+                                class="h-9 min-w-0 flex-1 rounded-md border bg-background px-2 text-sm"
+                            >
+                                <option
+                                    v-for="type in OVERLAY_TYPES"
+                                    :key="type"
+                                    :value="type"
+                                >
+                                    {{ OVERLAY_LABELS[type] ?? type }}
+                                </option>
+                            </select>
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                :disabled="
+                                    form.overlay_defaults.length >= MAX_OVERLAYS
+                                "
+                                @click="addOverlayDefault"
+                                >Tambah</Button
+                            >
+                        </div>
+                        <p
+                            v-if="form.overlay_defaults.length === 0"
+                            class="mt-3 rounded-md border border-dashed p-3 text-xs text-muted-foreground"
+                        >
+                            Belum ada overlay default.
+                        </p>
+                        <OverlayCard
+                            v-for="(
+                                overlay, overlayIndex
+                            ) in form.overlay_defaults"
+                            :key="overlay.id ?? overlayIndex"
+                            :overlay="overlay"
+                            :api-connections="apiConnections"
+                            :media-assets="mediaAssets"
+                            :index="overlayIndex"
+                            :total="form.overlay_defaults.length"
+                            @remove="
+                                form.overlay_defaults.splice(overlayIndex, 1)
+                            "
+                            @duplicate="duplicateOverlayDefault(overlayIndex)"
+                            @move="
+                                (direction) =>
+                                    moveOverlayDefault(overlayIndex, direction)
+                            "
+                        />
                     </div>
 
                     <div class="rounded-lg border p-4">

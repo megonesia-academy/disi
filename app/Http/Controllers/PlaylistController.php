@@ -15,6 +15,8 @@ use App\Models\TokenTransaction;
 use App\Services\TenantBilling;
 use App\Support\ActivityLogger;
 use App\Support\CurrentTenant;
+use App\Support\OverlayCatalog;
+use App\Support\OverlayRules;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -431,28 +433,7 @@ class PlaylistController extends Controller
             'description' => ['nullable', 'string', 'max:2000'],
             'is_active' => ['required', 'boolean'],
             'status' => ['required', Rule::in([Playlist::STATUS_DRAFT, Playlist::STATUS_PUBLISHED])],
-            'overlays' => ['array', 'max:4'],
-            'overlays.*.type' => ['required', Rule::in(['ticker', 'clock', 'weather'])],
-            'overlays.*.config.text' => ['nullable', 'string', 'max:1000'],
-            'overlays.*.config.source' => ['nullable', Rule::in(['static', 'array'])],
-            'overlays.*.config.items' => ['nullable', 'array', 'max:100'],
-            'overlays.*.config.items.*' => ['string', 'max:1000'],
-            'overlays.*.config.mode' => ['nullable', Rule::in(['loop', 'rotate'])],
-            'overlays.*.config.item_duration_seconds' => ['nullable', 'integer', 'min:2', 'max:3600'],
-            'overlays.*.config.format' => ['nullable', Rule::in(['24h', '12h'])],
-            'overlays.*.config.position' => ['nullable', Rule::in(['top', 'bottom', 'top-left', 'top-right', 'bottom-left', 'bottom-right'])],
-            'overlays.*.config.offset_x' => ['nullable', 'integer', 'min:-500', 'max:500'],
-            'overlays.*.config.offset_y' => ['nullable', 'integer', 'min:-500', 'max:500'],
-            'overlays.*.config.speed' => ['nullable', 'integer', 'min:10', 'max:200'],
-            'overlays.*.config.text_color' => ['nullable', 'string', 'max:20'],
-            'overlays.*.config.background_color' => ['nullable', 'string', 'max:20'],
-            'overlays.*.config.api_connection_id' => [
-                'nullable',
-                'required_if:overlays.*.type,weather',
-                $this->connectionRule($tenant),
-            ],
-            'overlays.*.config.endpoint' => ['nullable', 'string', 'max:2048', 'required_if:overlays.*.type,weather'],
-            'overlays.*.config.refresh_seconds' => ['nullable', 'integer', 'min:10', 'max:86400'],
+            ...OverlayRules::rules($tenant),
             'items' => ['array'],
             'items.*.template' => ['nullable', Rule::in(['media', 'announcement', 'data-table', 'patient-queue', 'flight-board', 'menu', 'weather', 'split-screen', 'custom'])],
             'items.*.template_id' => [
@@ -545,25 +526,12 @@ class PlaylistController extends Controller
             $playlist->overlays()->create([
                 'tenant_id' => $tenant->id,
                 'type' => $overlay['type'],
-                'config' => [
-                    'text' => $overlay['config']['text'] ?? null,
-                    'source' => $overlay['config']['source'] ?? 'static',
-                    'items' => array_values($overlay['config']['items'] ?? []),
-                    'mode' => $overlay['config']['mode'] ?? 'loop',
-                    'item_duration_seconds' => $overlay['config']['item_duration_seconds'] ?? 8,
-                    'format' => $overlay['config']['format'] ?? '24h',
-                    'position' => $overlay['config']['position'] ?? ($overlay['type'] === 'clock' ? 'top-right' : 'bottom'),
-                    'offset_x' => (int) ($overlay['config']['offset_x'] ?? 0),
-                    'offset_y' => (int) ($overlay['config']['offset_y'] ?? 0),
-                    'speed' => $overlay['config']['speed'] ?? 60,
-                    'text_color' => $overlay['config']['text_color'] ?? '#ffffff',
-                    'background_color' => $overlay['config']['background_color'] ?? '#111827',
-                    'api_connection_id' => $overlay['config']['api_connection_id'] ?? null,
-                    'endpoint' => $overlay['config']['endpoint'] ?? null,
-                    'refresh_seconds' => $overlay['config']['refresh_seconds'] ?? 900,
-                ],
+                'config' => OverlayCatalog::normalize(
+                    $overlay['type'],
+                    is_array($overlay['config'] ?? null) ? $overlay['config'] : [],
+                ),
                 'sort_order' => $index + 1,
-                'is_active' => $overlay['is_active'] ?? true,
+                'is_active' => (bool) ($overlay['is_active'] ?? true),
             ]);
         }
     }

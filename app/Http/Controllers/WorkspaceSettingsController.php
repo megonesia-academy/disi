@@ -2,9 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ApiConnection;
+use App\Models\MediaAsset;
 use App\Models\Tenant;
 use App\Support\ActivityLogger;
 use App\Support\CurrentTenant;
+use App\Support\OverlayCatalog;
+use App\Support\OverlayRules;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -52,8 +56,32 @@ class WorkspaceSettingsController extends Controller
                         'billing_address' => $tenant->settings['billing_metadata']['billing_address'] ?? '',
                         'phone' => $tenant->settings['billing_metadata']['phone'] ?? '',
                     ],
+                    'overlay_defaults' => OverlayCatalog::normalizeList($tenant->settings['overlay_defaults'] ?? []),
                 ],
             ],
+            'mediaAssets' => MediaAsset::query()
+                ->where('tenant_id', $tenant->id)
+                ->whereIn('type', [MediaAsset::TYPE_IMAGE, MediaAsset::TYPE_IMAGE_URL])
+                ->orderBy('name')
+                ->get()
+                ->map(fn (MediaAsset $asset): array => [
+                    'id' => $asset->id,
+                    'name' => $asset->name,
+                    'type' => $asset->type,
+                    'url' => $this->mediaAssetUrl($asset),
+                ])->values(),
+            'apiConnections' => ApiConnection::query()
+                ->where(fn ($query) => $query
+                    ->whereNull('tenant_id')
+                    ->orWhere('tenant_id', $tenant->id))
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get()
+                ->map(fn (ApiConnection $connection): array => [
+                    'id' => $connection->id,
+                    'name' => $connection->name,
+                    'provider' => $connection->provider,
+                ])->values(),
         ]);
     }
 
@@ -91,6 +119,7 @@ class WorkspaceSettingsController extends Controller
             'billing_tax_id' => ['nullable', 'string', 'max:255'],
             'billing_address' => ['nullable', 'string', 'max:2000'],
             'billing_phone' => ['nullable', 'string', 'max:255'],
+            ...OverlayRules::rules($tenant, 'overlay_defaults'),
         ]);
 
         $settings = $tenant->settings ?? [];
@@ -130,6 +159,7 @@ class WorkspaceSettingsController extends Controller
                     'billing_address' => $validated['billing_address'] ?? null,
                     'phone' => $validated['billing_phone'] ?? null,
                 ],
+                'overlay_defaults' => OverlayCatalog::normalizeList($validated['overlay_defaults'] ?? []),
             ],
         ]);
 
@@ -150,5 +180,14 @@ class WorkspaceSettingsController extends Controller
         }
 
         return asset('storage/'.ltrim($logoPath, '/'));
+    }
+
+    private function mediaAssetUrl(MediaAsset $mediaAsset): string
+    {
+        if ($mediaAsset->usesExternalUrl()) {
+            return $mediaAsset->path;
+        }
+
+        return asset('storage/'.ltrim($mediaAsset->path, '/'));
     }
 }

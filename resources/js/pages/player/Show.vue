@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import OverlayLayer from '@/components/player/OverlayLayer.vue';
 import { isImageMedia, isVideoMedia, type MediaAssetType } from '@/lib/media';
+import { type OverlayConfig, type OverlayEntry } from '@/lib/overlays';
+import { renderTemplateDocument } from '@/lib/templateRenderer';
 import {
     computeMediaBox,
     initSignageCore,
@@ -21,36 +24,12 @@ type Media = {
     metadata: Record<string, unknown> | null;
 };
 
-type TickerOverlay = {
-    type: 'ticker';
-    text: string;
-    position?:
-        | 'top'
-        | 'bottom'
-        | 'top-left'
-        | 'top-right'
-        | 'bottom-left'
-        | 'bottom-right';
-    speed?: number;
-    text_color?: string;
-    background_color?: string;
-    source?: 'static' | 'array';
-    items?: string[];
-    format?: '24h' | '12h';
-    weather?: {
-        temperature?: unknown;
-        humidity?: unknown;
-        weather_code?: unknown;
-        wind_speed?: unknown;
-        location?: unknown;
-        updated_at?: unknown;
-    };
-};
+type TickerOverlay = OverlayConfig & { type: 'ticker' };
 
 type PlaylistOverlay = {
     id: string;
-    type: 'ticker' | 'clock' | 'weather';
-    config: TickerOverlay;
+    type: string;
+    config: OverlayConfig;
     sort_order: number;
 };
 
@@ -124,6 +103,15 @@ type Manifest = {
             height: number;
         };
     };
+    schedule: {
+        id: string;
+        priority: number;
+        starts_at: string | null;
+        ends_at: string | null;
+        days_of_week: number[] | null;
+        start_time: string | null;
+        end_time: string | null;
+    };
     playlist: {
         id: string;
         name: string;
@@ -181,6 +169,7 @@ const mediaReadiness = ref<MediaReadiness>({
 });
 const serviceWorkerReady = ref(false);
 const currentTime = ref(new Date());
+const itemStartedAt = ref<number | null>(null);
 
 let itemTimer: number | undefined;
 let refreshTimer: number | undefined;
@@ -191,6 +180,10 @@ let clockTimer: number | undefined;
 
 const activeItem = computed(() => {
     return manifest.value?.playlist.items[activeIndex.value] ?? null;
+});
+
+watch(activeIndex, () => {
+    itemStartedAt.value = Date.now();
 });
 
 const hasItems = computed(() => {
@@ -235,112 +228,66 @@ const mediaFitClass = computed(() => {
     return 'object-cover';
 });
 
-const tickerOverlays = computed(() => {
-    const globalOverlays = (manifest.value?.playlist.overlays ?? [])
-        .filter((overlay) => overlay.type === 'ticker')
-        .map((overlay) => overlay.config);
-    const itemOverlays = (activeItem.value?.config?.overlays ?? []).filter(
-        (overlay) => overlay.type === 'ticker',
+const overlayEntries = computed<OverlayEntry[]>(() => {
+    const globalOverlays = (manifest.value?.playlist.overlays ?? []).map(
+        (overlay): OverlayEntry => ({
+            id: overlay.id,
+            type: overlay.type,
+            config: overlay.config,
+        }),
+    );
+    const itemOverlays = (activeItem.value?.config?.overlays ?? []).map(
+        (overlay, index): OverlayEntry => ({
+            id: `item-${activeIndex.value}-${index}`,
+            type: 'ticker',
+            config: overlay,
+        }),
     );
 
     return [...globalOverlays, ...itemOverlays];
 });
 
-const clockOverlays = computed(() => {
-    return (manifest.value?.playlist.overlays ?? []).filter(
-        (overlay) => overlay.type === 'clock',
+const overlayItem = computed(() => {
+    const item = activeItem.value;
+
+    if (!item) {
+        return null;
+    }
+
+    const items = manifest.value?.playlist.items ?? [];
+    const nextItem =
+        items.length > 0 ? items[(activeIndex.value + 1) % items.length] : null;
+    const durationSeconds = Math.max(
+        item.duration_seconds ?? item.media?.duration_seconds ?? 10,
+        1,
     );
+    const elapsedSeconds = itemStartedAt.value
+        ? Math.max(
+              0,
+              (currentTime.value.getTime() - itemStartedAt.value) / 1000,
+          )
+        : 0;
+
+    return {
+        title: itemTitle(item),
+        nextTitle: nextItem ? itemTitle(nextItem) : null,
+        elapsedSeconds: Math.min(elapsedSeconds, durationSeconds),
+        durationSeconds,
+    };
 });
 
-const weatherOverlays = computed(() => {
-    return (manifest.value?.playlist.overlays ?? []).filter(
-        (overlay) => overlay.type === 'weather',
-    );
-});
+function itemTitle(item: PlaylistItem | null): string {
+    if (!item) {
+        return '';
+    }
 
-function weatherOverlayData(overlay: PlaylistOverlay): {
-    temperature: string;
-    humidity: string;
-    condition: string;
-    wind: string | null;
-    location: string;
-} {
-    const weather = overlay.config.weather ?? {};
-    const wind = weather.wind_speed;
+    const contentTitle = item.content?.title;
 
-    return {
-        temperature:
-            weather.temperature === null || weather.temperature === undefined
-                ? '-'
-                : `${weather.temperature} °C`,
-        humidity:
-            weather.humidity === null || weather.humidity === undefined
-                ? '-'
-                : `${weather.humidity}%`,
-        condition: weatherCondition(weather.weather_code),
-        wind:
-            wind === null || wind === undefined || wind === ''
-                ? null
-                : `${wind} km/h`,
-        location: String(weather.location ?? 'Weather'),
-    };
-}
+    if (typeof contentTitle === 'string' && contentTitle.trim() !== '') {
+        return contentTitle;
+    }
 
-function weatherOverlayPositionClass(position?: string): string {
-    return (
-        {
-            'top-left': 'top-4 left-4',
-            'top-right': 'top-4 right-4',
-            'bottom-left': 'bottom-4 left-4',
-            'bottom-right': 'bottom-4 right-4',
-        }[position ?? 'top-right'] ?? 'top-4 right-4'
-    );
-}
-
-function tickerText(overlay: TickerOverlay): string {
-    return overlay.source === 'array' && overlay.items?.length
-        ? overlay.items.join('   •   ')
-        : (overlay.text ?? '');
-}
-
-function tickerStyle(overlay: TickerOverlay): Record<string, string> {
-    return {
-        color: overlay.text_color ?? '#ffffff',
-        backgroundColor: overlay.background_color ?? '#111827',
-    };
-}
-
-function tickerAnimationStyle(overlay: TickerOverlay): Record<string, string> {
-    const speed = Math.min(Math.max(Number(overlay.speed ?? 60), 10), 200);
-
-    return {
-        animationDuration: `${Math.max(8, 40 - speed * 0.16)}s`,
-    };
-}
-
-function clockPositionClass(position?: string): string {
-    return (
-        {
-            'top-left': 'top-4 left-4',
-            'top-right': 'top-4 right-4',
-            'bottom-left': 'bottom-4 left-4',
-            'bottom-right': 'bottom-4 right-4',
-        }[position ?? 'top-right'] ?? 'top-4 right-4'
-    );
-}
-
-function overlayOffsetStyle(overlay: TickerOverlay): Record<string, string> {
-    const position = overlay.position ?? 'top-right';
-    const offsetX = Number(overlay.offset_x ?? 0);
-    const offsetY = Number(overlay.offset_y ?? 0);
-    const style: Record<string, string> = {};
-
-    if (position.includes('left')) style.left = `calc(1rem + ${offsetX}px)`;
-    if (position.includes('right')) style.right = `calc(1rem - ${offsetX}px)`;
-    if (position.includes('top')) style.top = `calc(1rem + ${offsetY}px)`;
-    if (position.includes('bottom')) style.bottom = `calc(1rem - ${offsetY}px)`;
-
-    return style;
+    return item.media?.name ?? templateTitle(item);
 }
 
 const mediaBoxStyle = computed(() => {
@@ -459,6 +406,13 @@ function applyManifest(nextManifest: Manifest, source: 'live' | 'cache'): void {
 
     if (activeIndex.value >= nextManifest.playlist.items.length) {
         activeIndex.value = 0;
+    }
+
+    if (
+        itemStartedAt.value === null &&
+        nextManifest.playlist.items.length > 0
+    ) {
+        itemStartedAt.value = Date.now();
     }
 
     configurePlayerTimers();
@@ -602,11 +556,11 @@ function uniquePreloadableMedia(nextManifest: Manifest): Media[] {
 }
 
 function preloadMedia(media: Media): Promise<boolean> {
-    if (isImageMedia(media.type)) {
+    if (isImageMedia(media.type) && media.url) {
         return preloadImage(media.url);
     }
 
-    if (isVideoMedia(media.type)) {
+    if (isVideoMedia(media.type) && media.url) {
         return preloadVideo(media.url);
     }
 
@@ -1027,56 +981,7 @@ function menuItems(item: PlaylistItem): Array<Record<string, unknown>> {
 }
 
 function renderCustomTemplate(item: PlaylistItem): string {
-    const html = item.template_definition?.html ?? '';
-    const data = item.content ?? {};
-    const escaped = (value: unknown): string =>
-        String(value ?? '').replace(
-            /[&<>"']/g,
-            (character) =>
-                ({
-                    '&': '&amp;',
-                    '<': '&lt;',
-                    '>': '&gt;',
-                    '"': '&quot;',
-                    "'": '&#039;',
-                })[character] ?? character,
-        );
-    const valueAtPath = (source: unknown, path: string): unknown => {
-        if (path === 'this') return source;
-
-        return path
-            .split('.')
-            .reduce<unknown>(
-                (value, segment) =>
-                    value && typeof value === 'object' && segment in value
-                        ? (value as Record<string, unknown>)[segment]
-                        : undefined,
-                source,
-            );
-    };
-    const replaceFields = (markup: string, source: unknown): string =>
-        markup.replace(
-            /{{\s*(?:this\.)?([\w.-]+)\s*}}/g,
-            (_match, key: string) => escaped(valueAtPath(source, key)),
-        );
-    const renderedHtml = html.replace(
-        /{{#each\s+([\w.-]+)}}([\s\S]*?){{\/each}}/g,
-        (_match, path: string, block: string) => {
-            const rows = valueAtPath(data, path);
-
-            return Array.isArray(rows)
-                ? rows.map((row) => replaceFields(block, row)).join('')
-                : '';
-        },
-    );
-
-    return `<style>${item.template_definition?.css ?? ''}</style>${renderedHtml}`
-        .replace(/<script[\s\S]*?<\/script>/gi, '')
-        .replace(/\son\w+\s*=\s*(['"]).*?\1/gi, '')
-        .replace(/javascript:/gi, '')
-        .replace(/{{\s*([\w.-]+)\s*}}/g, (_match, key: string) =>
-            escaped(valueAtPath(data, key)),
-        );
+    return renderTemplateDocument(item.template_definition, item.content ?? {});
 }
 
 function showNextItem(): void {
@@ -1197,8 +1102,11 @@ onBeforeUnmount(() => {
                                 v-if="activeItem.template === 'custom'"
                                 class="h-full w-full overflow-hidden bg-zinc-950 text-white"
                             >
-                                <div
-                                    v-html="renderCustomTemplate(activeItem)"
+                                <iframe
+                                    :srcdoc="renderCustomTemplate(activeItem)"
+                                    sandbox="allow-same-origin"
+                                    class="h-full w-full border-0"
+                                    title="Custom content"
                                 />
                             </div>
                             <div
@@ -1836,88 +1744,16 @@ onBeforeUnmount(() => {
                         </div>
                     </Transition>
 
-                    <div
-                        v-for="overlay in tickerOverlays"
-                        :key="`ticker-${overlay.text}`"
-                        class="pointer-events-none absolute right-0 left-0 z-20 overflow-hidden px-4 py-3 text-lg font-medium"
-                        :class="
-                            overlay.position === 'top' ? 'top-0' : 'bottom-0'
+                    <OverlayLayer
+                        :overlays="overlayEntries"
+                        :now="currentTime"
+                        :brand-label="brandLabel"
+                        :screen="
+                            manifest?.screen ?? { name: '', location: null }
                         "
-                        :style="tickerStyle(overlay)"
-                    >
-                        <div
-                            class="ticker-track w-max whitespace-nowrap"
-                            :style="tickerAnimationStyle(overlay)"
-                        >
-                            {{ tickerText(overlay) }}
-                        </div>
-                    </div>
-
-                    <div
-                        v-for="overlay in clockOverlays"
-                        :key="`clock-${overlay.id}`"
-                        class="pointer-events-none absolute z-20 rounded-md px-3 py-2 text-xl font-semibold tabular-nums"
-                        :class="clockPositionClass(overlay.config.position)"
-                        :style="{
-                            ...tickerStyle(overlay.config),
-                            ...overlayOffsetStyle(overlay.config),
-                        }"
-                    >
-                        {{
-                            currentTime.toLocaleTimeString([], {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                second: '2-digit',
-                                hour12: overlay.config.format === '12h',
-                            })
-                        }}
-                    </div>
-
-                    <div
-                        v-for="overlay in weatherOverlays"
-                        :key="`weather-${overlay.id}`"
-                        class="pointer-events-none absolute z-30 min-w-56 rounded-lg border border-white/15 bg-slate-950/85 px-4 py-3 text-white shadow-xl backdrop-blur-sm"
-                        :class="
-                            weatherOverlayPositionClass(overlay.config.position)
-                        "
-                        :style="{
-                            ...tickerStyle(overlay.config),
-                            ...overlayOffsetStyle(overlay.config),
-                        }"
-                    >
-                        <div class="flex items-center justify-between gap-5">
-                            <div>
-                                <div
-                                    class="text-[10px] font-semibold tracking-[0.2em] text-cyan-300 uppercase"
-                                >
-                                    Weather
-                                </div>
-                                <div
-                                    class="mt-1 text-sm font-medium text-white/75"
-                                >
-                                    {{ weatherOverlayData(overlay).location }}
-                                </div>
-                            </div>
-                            <div class="text-3xl leading-none font-semibold">
-                                {{ weatherOverlayData(overlay).temperature }}
-                            </div>
-                        </div>
-                        <div
-                            class="mt-3 flex items-center gap-3 border-t border-white/10 pt-2 text-xs text-white/70"
-                        >
-                            <span>{{
-                                weatherOverlayData(overlay).condition
-                            }}</span>
-                            <span
-                                >Humidity
-                                {{ weatherOverlayData(overlay).humidity }}</span
-                            >
-                            <span v-if="weatherOverlayData(overlay).wind"
-                                >Wind
-                                {{ weatherOverlayData(overlay).wind }}</span
-                            >
-                        </div>
-                    </div>
+                        :item="overlayItem"
+                        :schedule="manifest?.schedule ?? null"
+                    />
 
                     <div
                         v-if="mediaErrorMessage"
@@ -2079,20 +1915,6 @@ onBeforeUnmount(() => {
 .zoom-leave-to {
     opacity: 0;
     transform: scale(0.96);
-}
-
-.ticker-track {
-    animation: ticker-scroll linear infinite;
-}
-
-@keyframes ticker-scroll {
-    from {
-        transform: translateX(100vw);
-    }
-
-    to {
-        transform: translateX(-100%);
-    }
 }
 
 .weather-panel {

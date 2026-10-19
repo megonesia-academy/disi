@@ -8,11 +8,15 @@ use App\Models\MediaAsset;
 use App\Models\Playlist;
 use App\Models\Schedule;
 use App\Models\Screen;
+use App\Models\Tenant;
+use App\Support\OverlayCatalog;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class PlayerManifestResolver
 {
@@ -139,14 +143,7 @@ class PlayerManifestResolver
             'playlist' => [
                 'id' => $schedule->playlist->id,
                 'name' => $schedule->playlist->name,
-                'overlays' => $schedule->playlist->overlays
-                    ->where('is_active', true)
-                    ->map(fn ($overlay): array => [
-                        'id' => $overlay->id,
-                        'type' => $overlay->type,
-                        'config' => $this->resolveOverlayConfig($overlay->config, (string) $screen->tenant_id, (string) $overlay->id),
-                        'sort_order' => $overlay->sort_order,
-                    ])->values(),
+                'overlays' => $this->playlistOverlays($screen, $schedule, $now),
                 'items' => $schedule->playlist->items->map(fn ($item): array => [
                     'id' => $item->id,
                     'sort_order' => $item->sort_order,
@@ -393,10 +390,88 @@ class PlayerManifestResolver
         return array_replace($fallback, $apiData);
     }
 
-    /** @param array<string, mixed> $config @return array<string, mixed> */
-    private function resolveOverlayConfig(array $config, string $tenantId, string $overlayId): array
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function playlistOverlays(Screen $screen, Schedule $schedule, CarbonInterface $now): array
     {
-        if (($config['api_connection_id'] ?? null) === null || ! filled($config['endpoint'] ?? null)) {
+        $overlays = [];
+
+        foreach ($this->tenantOverlayDefaults($screen->tenant) as $index => $overlay) {
+            $overlays[] = [
+                'id' => 'tenant-'.$index.'-'.$overlay['type'],
+                'type' => $overlay['type'],
+                'config' => $overlay['config'],
+                'sort_order' => $index + 1,
+            ];
+        }
+
+        foreach ($schedule->playlist->overlays->where('is_active', true) as $overlay) {
+            $overlays[] = [
+                'id' => $overlay->id,
+                'type' => $overlay->type,
+                'config' => $overlay->config,
+                'sort_order' => $overlay->sort_order,
+            ];
+        }
+
+        $resolved = [];
+
+        foreach ($overlays as $overlay) {
+            if (! OverlayCatalog::isKnownType($overlay['type'])) {
+                continue;
+            }
+
+            $config = is_array($overlay['config']) ? $overlay['config'] : [];
+
+            if (! OverlayCatalog::matchesSchedule(OverlayCatalog::normalizeSchedule($config['schedule'] ?? []), $now)) {
+                continue;
+            }
+
+            $resolved[] = [
+                'id' => $overlay['id'],
+                'type' => $overlay['type'],
+                'config' => $this->resolveOverlayConfig($overlay['type'], $config, (string) $screen->tenant_id, (string) $overlay['id']),
+                'sort_order' => $overlay['sort_order'],
+            ];
+        }
+
+        return $resolved;
+    }
+
+    /**
+     * @return array<int, array{type: string, config: array<string, mixed>}>
+     */
+    private function tenantOverlayDefaults(Tenant $tenant): array
+    {
+        $overlays = [];
+
+        foreach (OverlayCatalog::normalizeList($tenant->settings['overlay_defaults'] ?? []) as $overlay) {
+            if (! $overlay['is_active']) {
+                continue;
+            }
+
+            $overlays[] = ['type' => $overlay['type'], 'config' => $overlay['config']];
+        }
+
+        return $overlays;
+    }
+
+    /**
+     * @param  array<string, mixed>  $config
+     * @return array<string, mixed>
+     */
+    private function resolveOverlayConfig(string $type, array $config, string $tenantId, string $overlayId): array
+    {
+        if ($type === 'badge') {
+            return $this->resolveBadgeOverlay($config, $tenantId);
+        }
+
+        if (! in_array($type, OverlayCatalog::REMOTE_TYPES, true)) {
+            return $config;
+        }
+
+        if (! filled($config['api_connection_id'] ?? null) || ! filled($config['endpoint'] ?? null)) {
             return $config;
         }
 
@@ -406,9 +481,14 @@ class PlayerManifestResolver
             ->where('is_active', true)
             ->where('is_approved', true)
             ->first();
-        $provider = $connection ? config('signage.api_providers.'.$connection->provider) : null;
 
-        if (! $connection || ! is_array($provider) || ! filled($provider['base_url'] ?? null)) {
+        if (! $connection) {
+            return $config;
+        }
+
+        $baseUrl = $this->overlayBaseUrl($connection);
+
+        if ($baseUrl === null) {
             return $config;
         }
 
@@ -420,8 +500,9 @@ class PlayerManifestResolver
             return $config;
         }
 
-        $url = rtrim((string) $provider['base_url'], '/').$endpoint;
+        $url = $baseUrl.$endpoint;
         $refreshSeconds = min(max((int) ($config['refresh_seconds'] ?? 900), 10), 86400);
+
         try {
             $credential = $connection->credential ? Crypt::decryptString($connection->credential) : null;
         } catch (\Throwable) {
@@ -432,39 +513,218 @@ class PlayerManifestResolver
             'api_key' => $credential ? ['X-API-Key' => $credential] : [],
             default => [],
         };
-        $payload = Cache::remember('playlist-overlay-weather:'.$overlayId.':'.$connection->updated_at?->timestamp, now()->addSeconds($refreshSeconds), function () use ($url, $headers, $config): array {
+
+        $cacheKey = 'playlist-overlay-'.$type.':'.$overlayId.':'.md5($url).':'.$connection->updated_at?->timestamp;
+
+        $payload = Cache::remember($cacheKey, now()->addSeconds($refreshSeconds), function () use ($type, $url, $headers, $config): array {
             try {
-                $response = Http::acceptJson()->withHeaders($headers)->timeout(10)->get($url);
-                $payload = $response->successful() ? $response->json() : [];
-                $payload = is_array($payload['data'] ?? null) ? $payload['data'] : $payload;
-                $mapping = is_array($config['mapping'] ?? null) ? $config['mapping'] : [];
-                $paths = $mapping ?: [
-                    'temperature' => 'current.temperature_2m',
-                    'humidity' => 'current.relative_humidity_2m',
-                    'weather_code' => 'current.weather_code',
-                    'wind_speed' => 'current.wind_speed_10m',
-                    'location' => 'timezone',
-                    'updated_at' => 'current.time',
-                ];
-                $result = [];
-                foreach ($paths as $target => $path) {
-                    $value = $payload;
-                    foreach (explode('.', (string) $path) as $segment) {
-                        if (! is_array($value) || ! array_key_exists($segment, $value)) {
-                            $value = null;
-                            break;
-                        }
-                        $value = $value[$segment];
-                    }
-                    $result[$target] = $value;
+                $response = Http::withHeaders($headers)->timeout(10)->get($url);
+
+                if (! $response->successful()) {
+                    return [];
                 }
 
-                return $result;
+                return match ($type) {
+                    'weather' => $this->weatherPayload($response->json(), $config),
+                    'api' => $this->apiOverlayPayload($response->json(), $config),
+                    'rss' => $this->feedEntries($response->body(), (int) ($config['item_limit'] ?? 8)),
+                    default => [],
+                };
             } catch (\Throwable) {
                 return [];
             }
         });
 
-        return array_merge($config, ['weather' => $payload]);
+        return match ($type) {
+            'weather' => array_merge($config, ['weather' => $payload]),
+            'api' => array_merge($config, ['values' => $payload]),
+            'rss' => array_merge($config, ['entries' => $payload]),
+            default => $config,
+        };
+    }
+
+    /**
+     * @param  array<string, mixed>  $config
+     * @return array<string, mixed>
+     */
+    private function resolveBadgeOverlay(array $config, string $tenantId): array
+    {
+        $asset = MediaAsset::query()
+            ->where('tenant_id', $tenantId)
+            ->whereKey($config['media_asset_id'] ?? null)
+            ->first();
+
+        $isImage = $asset !== null && in_array($asset->type, [MediaAsset::TYPE_IMAGE, MediaAsset::TYPE_IMAGE_URL], true);
+
+        return array_merge($config, [
+            'image_url' => $isImage ? $this->mediaUrl($asset) : null,
+            'image_name' => $isImage ? $asset->name : null,
+        ]);
+    }
+
+    private function overlayBaseUrl(ApiConnection $connection): ?string
+    {
+        $provider = config('signage.api_providers.'.$connection->provider);
+
+        if (is_array($provider) && filled($provider['base_url'] ?? null)) {
+            return rtrim((string) $provider['base_url'], '/');
+        }
+
+        if (blank($connection->base_url)) {
+            return null;
+        }
+
+        $host = parse_url((string) $connection->base_url, PHP_URL_HOST);
+
+        if (! is_string($host) || ! collect(config('signage.api_allowed_hosts', []))->contains(fn (string $allowed): bool => Str::is($allowed, $host))) {
+            return null;
+        }
+
+        return rtrim((string) $connection->base_url, '/');
+    }
+
+    /**
+     * @param  array<string, mixed>  $config
+     * @return array<string, mixed>
+     */
+    private function weatherPayload(mixed $payload, array $config): array
+    {
+        $payload = is_array($payload) ? $payload : [];
+        $payload = is_array($payload['data'] ?? null) ? $payload['data'] : $payload;
+
+        $paths = is_array($config['mapping'] ?? null) ? $config['mapping'] : [];
+        $paths = $paths ?: [
+            'temperature' => 'current.temperature_2m',
+            'humidity' => 'current.relative_humidity_2m',
+            'weather_code' => 'current.weather_code',
+            'wind_speed' => 'current.wind_speed_10m',
+            'location' => 'timezone',
+            'updated_at' => 'current.time',
+        ];
+
+        $result = [];
+
+        foreach ($paths as $target => $path) {
+            $result[$target] = $this->valueAtPath($payload, (string) $path);
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param  array<string, mixed>  $config
+     * @return array<int, array{label: string, prefix: string, suffix: string, value: string|null}>
+     */
+    private function apiOverlayPayload(mixed $payload, array $config): array
+    {
+        $payload = is_array($payload) ? $payload : [];
+        $payload = is_array($payload['data'] ?? null) ? $payload['data'] : $payload;
+
+        $fields = is_array($config['fields'] ?? null) ? $config['fields'] : [];
+        $values = [];
+
+        foreach ($fields as $field) {
+            if (! is_array($field) || ! is_string($field['path'] ?? null)) {
+                continue;
+            }
+
+            $value = $this->valueAtPath($payload, $field['path']);
+
+            if (is_float($value)) {
+                $value = rtrim(rtrim(number_format($value, 2, '.', ''), '0'), '.');
+            }
+
+            $values[] = [
+                'label' => (string) ($field['label'] ?? 'Value'),
+                'prefix' => (string) ($field['prefix'] ?? ''),
+                'suffix' => (string) ($field['suffix'] ?? ''),
+                'value' => match (true) {
+                    is_bool($value) => $value ? 'true' : 'false',
+                    is_scalar($value) => (string) $value,
+                    $value === null => null,
+                    default => json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: null,
+                },
+            ];
+        }
+
+        return $values;
+    }
+
+    /**
+     * @return array<int, array{title: string, summary: string}>
+     */
+    private function feedEntries(string $body, int $limit): array
+    {
+        $limit = max(1, min(20, $limit));
+        $trimmed = ltrim($body);
+
+        if (str_starts_with($trimmed, '{')) {
+            $json = json_decode($trimmed, true);
+            $items = is_array($json['items'] ?? null) ? $json['items'] : [];
+
+            return array_slice(array_map(fn (mixed $item): array => [
+                'title' => Str::limit(trim(strip_tags((string) (is_array($item) ? ($item['title'] ?? '') : ''))), 200),
+                'summary' => Str::limit(trim(strip_tags((string) (is_array($item) ? ($item['summary'] ?? $item['content_text'] ?? '') : ''))), 280),
+            ], $items), 0, $limit);
+        }
+
+        $document = new \DOMDocument;
+
+        if (! @$document->loadXML($body, LIBXML_NONET)) {
+            return [];
+        }
+
+        $xpath = new \DOMXPath($document);
+        $nodes = $xpath->query('//*[local-name()="item"] | //*[local-name()="entry"]');
+
+        if ($nodes === false) {
+            return [];
+        }
+
+        $entries = [];
+
+        foreach ($nodes as $node) {
+            $title = $xpath->query('*[local-name()="title"]', $node)?->item(0)?->textContent ?? '';
+            $summary = '';
+
+            foreach (['description', 'summary', 'content'] as $tag) {
+                $found = $xpath->query('*[local-name()="'.$tag.'"]', $node);
+
+                if ($found !== false && $found->length > 0) {
+                    $summary = $found->item(0)?->textContent ?? '';
+                    break;
+                }
+            }
+
+            $entries[] = [
+                'title' => Str::limit(trim(strip_tags($title)), 200),
+                'summary' => Str::limit(trim(strip_tags($summary)), 280),
+            ];
+
+            if (count($entries) >= $limit) {
+                break;
+            }
+        }
+
+        return $entries;
+    }
+
+    private function valueAtPath(mixed $payload, string $path): mixed
+    {
+        if ($path === '' || $path === 'this') {
+            return $payload;
+        }
+
+        $value = $payload;
+
+        foreach (explode('.', $path) as $segment) {
+            if (! is_array($value) || ! array_key_exists($segment, $value)) {
+                return null;
+            }
+
+            $value = $value[$segment];
+        }
+
+        return $value;
     }
 }
