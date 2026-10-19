@@ -2,9 +2,7 @@
 import { usePreferredReducedMotion } from '@vueuse/core';
 import {
     Clock3,
-    CloudSun,
     Hospital,
-    MonitorPlay,
     Pause,
     Plane,
     Play,
@@ -12,19 +10,25 @@ import {
     Utensils,
     Volume2,
 } from '@lucide/vue';
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, useId, watch } from 'vue';
+
+interface ScreenShowcaseProps {
+    /**
+     * Render only the screen content: no window chrome, no tab controls.
+     * The frame fills its container edge to edge.
+     */
+    bare?: boolean;
+}
+
+const { bare = false } = defineProps<ScreenShowcaseProps>();
 
 const AUTOPLAY_INTERVAL = 7000;
 
-type ScreenId =
-    | 'welcome'
-    | 'weather'
-    | 'flight'
-    | 'airport'
-    | 'hospital'
-    | 'restaurant';
+const uid = useId();
 
-type Tone = 'sunset' | 'ocean' | 'aurora';
+type ScreenId = 'weather' | 'airport' | 'hospital' | 'restaurant';
+
+type Tone = 'ocean';
 
 interface InfoCard {
     label: string;
@@ -33,12 +37,14 @@ interface InfoCard {
 }
 
 interface GenericScreen {
-    id: 'welcome' | 'weather' | 'flight';
+    id: 'weather';
     kicker: string;
     title: string;
     accent: string;
     subtitle: string;
     tone: Tone;
+    /** Animated weather icon, served from public/svg/weather/animated. */
+    icon: string;
     cards: [InfoCard, InfoCard];
 }
 
@@ -67,36 +73,13 @@ interface MenuItem {
 }
 
 const tabs: { id: ScreenId; label: string }[] = [
-    { id: 'welcome', label: 'Sambutan' },
     { id: 'weather', label: 'Cuaca' },
-    { id: 'flight', label: 'Penerbangan' },
     { id: 'airport', label: 'Bandara' },
     { id: 'hospital', label: 'Rumah sakit' },
     { id: 'restaurant', label: 'Restoran' },
 ];
 
 const genericScreens: GenericScreen[] = [
-    {
-        id: 'welcome',
-        kicker: 'Informasi lobi',
-        title: 'Selamat datang',
-        accent: 'di Jakarta.',
-        subtitle:
-            'Sampaikan informasi penting kepada pengunjung dengan tampilan yang jelas dan hangat.',
-        tone: 'sunset',
-        cards: [
-            {
-                label: 'Status layar',
-                value: 'Online',
-                detail: 'Terhubung dan siap menampilkan konten',
-            },
-            {
-                label: 'Playlist aktif',
-                value: 'Morning Lobby',
-                detail: '3 konten sedang dijadwalkan',
-            },
-        ],
-    },
     {
         id: 'weather',
         kicker: 'Data cuaca langsung',
@@ -105,6 +88,7 @@ const genericScreens: GenericScreen[] = [
         subtitle:
             'Cerah berawan. Informasi diperbarui otomatis agar selalu relevan bagi pengunjung.',
         tone: 'ocean',
+        icon: '/svg/weather/animated/cloudy-day-1.svg',
         cards: [
             {
                 label: 'Suhu sekarang',
@@ -115,27 +99,6 @@ const genericScreens: GenericScreen[] = [
                 label: 'Kondisi',
                 value: 'Cerah berawan',
                 detail: 'Kelembapan 62% · Angin 2 km/jam',
-            },
-        ],
-    },
-    {
-        id: 'flight',
-        kicker: 'Jadwal keberangkatan',
-        title: 'GA 204',
-        accent: 'siap boarding.',
-        subtitle:
-            'Jakarta menuju Denpasar. Status dan waktu tampil dalam sekali lihat.',
-        tone: 'aurora',
-        cards: [
-            {
-                label: 'Status',
-                value: 'Boarding',
-                detail: 'Gate 12 · Tepat waktu',
-            },
-            {
-                label: 'Keberangkatan',
-                value: '16:55',
-                detail: 'Jakarta → Denpasar',
             },
         ],
     },
@@ -442,10 +405,16 @@ onUnmounted(() => {
 
 <template>
     <div
-        class="overflow-hidden rounded-2xl border border-white/10 bg-[#0a1424] shadow-2xl shadow-black/40"
+        class="overflow-hidden"
+        :class="
+            bare
+                ? 'h-full w-full bg-[#050b18]'
+                : 'rounded-2xl border border-white/10 bg-[#0a1424] shadow-2xl shadow-black/40'
+        "
     >
         <div
-            class="flex items-center justify-between gap-3 border-b border-white/10 bg-white/[0.03] px-3 py-2.5 sm:px-4"
+            v-if="!bare"
+            class="flex items-center justify-between gap-3 border-b border-white/10 bg-white/3 px-3 py-2.5 sm:px-4"
         >
             <div class="flex items-center gap-1.5" aria-hidden="true">
                 <span class="size-2 rounded-full bg-white/20" />
@@ -473,12 +442,20 @@ onUnmounted(() => {
             </p>
         </div>
 
-        <div class="p-2 sm:p-2.5">
+        <div :class="bare ? 'grid h-full place-items-center' : 'p-2 sm:p-2.5'">
             <div
-                id="pratinjau-layar"
+                :id="`${uid}-layar`"
                 class="screen-frame"
-                role="tabpanel"
-                :aria-labelledby="`tab-${activeTab.id}`"
+                :class="{ 'screen-frame--fill': bare }"
+                :role="bare ? 'img' : 'tabpanel'"
+                :aria-label="
+                    bare
+                        ? `Pratinjau layar digital signage: ${activeTab.label}`
+                        : undefined
+                "
+                :aria-labelledby="
+                    bare ? undefined : `${uid}-tab-${activeTab.id}`
+                "
             >
                 <Transition name="preview-fade" mode="out-in">
                     <div
@@ -678,6 +655,15 @@ onUnmounted(() => {
                         :class="`tone-${genericScreen.tone}`"
                     >
                         <div class="generic-copy">
+                            <img
+                                :src="genericScreen.icon"
+                                class="generic-weather-icon"
+                                alt=""
+                                aria-hidden="true"
+                                draggable="false"
+                                loading="lazy"
+                                decoding="async"
+                            />
                             <p class="generic-kicker">
                                 <Signal
                                     class="generic-icon"
@@ -701,20 +687,14 @@ onUnmounted(() => {
                         <div class="generic-cards">
                             <div class="generic-card generic-card--light">
                                 <div class="generic-card-top">
-                                    <CloudSun
-                                        v-if="activeId === 'weather'"
+                                    <img
+                                        :src="genericScreen.icon"
                                         class="generic-card-icon"
+                                        alt=""
                                         aria-hidden="true"
-                                    />
-                                    <Plane
-                                        v-else-if="activeId === 'flight'"
-                                        class="generic-card-icon"
-                                        aria-hidden="true"
-                                    />
-                                    <MonitorPlay
-                                        v-else
-                                        class="generic-card-icon"
-                                        aria-hidden="true"
+                                        draggable="false"
+                                        loading="lazy"
+                                        decoding="async"
                                     />
                                     <span class="generic-card-badge">LIVE</span>
                                 </div>
@@ -757,6 +737,7 @@ onUnmounted(() => {
         </div>
 
         <div
+            v-if="!bare"
             class="flex items-center gap-2 border-t border-white/10 bg-white/[0.02] px-2 py-2.5 sm:px-3"
         >
             <div
@@ -766,13 +747,13 @@ onUnmounted(() => {
             >
                 <button
                     v-for="(tab, index) in tabs"
-                    :id="`tab-${tab.id}`"
+                    :id="`${uid}-tab-${tab.id}`"
                     :key="tab.id"
                     :ref="(element) => setTabElement(element, index)"
                     type="button"
                     role="tab"
                     :aria-selected="activeIndex === index"
-                    aria-controls="pratinjau-layar"
+                    :aria-controls="`${uid}-layar`"
                     :tabindex="activeIndex === index ? 0 : -1"
                     class="shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-bold transition-colors focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a1424] focus-visible:outline-none sm:text-xs"
                     :class="
@@ -810,6 +791,22 @@ onUnmounted(() => {
     color: #f8fafc;
 }
 
+/* Bare mode: the screen content fills its panel edge to edge, no aspect lock. */
+.screen-frame--fill {
+    aspect-ratio: auto;
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+}
+
+/* Portrait phones: keep the screen proportions instead of stretching it tall. */
+@media (width <= 640px) {
+    .screen-frame--fill {
+        aspect-ratio: 16 / 10;
+        height: auto;
+    }
+}
+
 .preview-fade-enter-active,
 .preview-fade-leave-active {
     transition:
@@ -835,15 +832,6 @@ onUnmounted(() => {
     background: #050b18;
 }
 
-.generic-panel.tone-sunset {
-    background-image: linear-gradient(
-        135deg,
-        #fdba74 0%,
-        #fbbf24 55%,
-        #fde68a 100%
-    );
-}
-
 .generic-panel.tone-ocean {
     background-image: linear-gradient(
         135deg,
@@ -853,23 +841,24 @@ onUnmounted(() => {
     );
 }
 
-.generic-panel.tone-aurora {
-    background-image: linear-gradient(
-        135deg,
-        #a5b4fc 0%,
-        #818cf8 55%,
-        #c4b5fd 100%
-    );
-}
-
 .generic-copy {
     display: flex;
     min-width: 0;
     flex-direction: column;
     justify-content: center;
-    gap: clamp(6px, 1.5cqw, 14px);
-    padding: clamp(14px, 4cqw, 38px);
+    gap: max(6px, 1.5cqw);
+    padding: max(14px, 4cqw);
     color: #0b1220;
+}
+
+/* Animated weather icon (public/svg/weather/animated) leads the copy block. */
+.generic-weather-icon {
+    width: max(44px, 9cqw);
+    height: auto;
+    flex: none;
+    align-self: flex-start;
+    filter: drop-shadow(0 4px 14px rgb(2 6 23 / 0.22));
+    user-select: none;
 }
 
 .generic-kicker {
@@ -878,7 +867,7 @@ onUnmounted(() => {
     align-items: center;
     gap: 0.4em;
     color: rgb(11 18 32 / 0.72);
-    font-size: clamp(9px, 1.7cqw, 12px);
+    font-size: max(9px, 1.7cqw);
     font-weight: 900;
     letter-spacing: 0.16em;
     text-transform: uppercase;
@@ -892,7 +881,7 @@ onUnmounted(() => {
 
 .generic-title {
     margin: 0;
-    font-size: clamp(18px, 6cqw, 44px);
+    font-size: max(18px, 6cqw);
     font-weight: 900;
     letter-spacing: -0.02em;
     line-height: 1.03;
@@ -904,7 +893,7 @@ onUnmounted(() => {
     overflow: hidden;
     margin: 0;
     color: rgb(11 18 32 / 0.78);
-    font-size: clamp(10px, 1.9cqw, 15px);
+    font-size: max(10px, 1.9cqw);
     font-weight: 600;
     line-height: 1.5;
     -webkit-box-orient: vertical;
@@ -914,15 +903,15 @@ onUnmounted(() => {
 .generic-inline {
     margin: 0;
     color: rgb(11 18 32 / 0.7);
-    font-size: clamp(8px, 1.5cqw, 11px);
+    font-size: max(8px, 1.5cqw);
     font-weight: 800;
 }
 
 .generic-cards {
     display: none;
     flex-direction: column;
-    gap: clamp(4px, 1cqw, 10px);
-    padding: clamp(6px, 1.2cqw, 12px);
+    gap: max(4px, 1cqw);
+    padding: max(6px, 1.2cqw);
     background: #050b18;
 }
 
@@ -931,9 +920,9 @@ onUnmounted(() => {
     flex: 1;
     flex-direction: column;
     justify-content: space-between;
-    gap: clamp(4px, 1cqw, 10px);
-    border-radius: clamp(8px, 1.4cqw, 16px);
-    padding: clamp(7px, 1.5cqw, 16px);
+    gap: max(4px, 1cqw);
+    border-radius: max(8px, 1.4cqw);
+    padding: max(7px, 1.5cqw);
 }
 
 .generic-card--light {
@@ -954,8 +943,8 @@ onUnmounted(() => {
 }
 
 .generic-card-icon {
-    width: clamp(12px, 2.4cqw, 26px);
-    height: clamp(12px, 2.4cqw, 26px);
+    width: max(12px, 2.4cqw);
+    height: max(12px, 2.4cqw);
     flex: none;
 }
 
@@ -964,7 +953,7 @@ onUnmounted(() => {
     background: #0b1220;
     padding: 0.15em 0.7em;
     color: #ffffff;
-    font-size: clamp(8px, 1.2cqw, 9px);
+    font-size: max(8px, 1.2cqw);
     font-weight: 900;
     letter-spacing: 0.06em;
 }
@@ -975,7 +964,7 @@ onUnmounted(() => {
 
 .generic-card-label {
     margin: 0;
-    font-size: clamp(8px, 1.4cqw, 10px);
+    font-size: max(8px, 1.4cqw);
     font-weight: 800;
     letter-spacing: 0.1em;
     opacity: 0.66;
@@ -984,7 +973,7 @@ onUnmounted(() => {
 
 .generic-card-value {
     margin: 0;
-    font-size: clamp(14px, 3cqw, 26px);
+    font-size: max(14px, 3cqw);
     font-weight: 900;
     letter-spacing: -0.01em;
     line-height: 1.1;
@@ -992,7 +981,7 @@ onUnmounted(() => {
 
 .generic-card-detail {
     margin: 0;
-    font-size: clamp(8px, 1.4cqw, 10px);
+    font-size: max(8px, 1.4cqw);
     font-weight: 600;
     line-height: 1.4;
     opacity: 0.66;
@@ -1018,7 +1007,7 @@ onUnmounted(() => {
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    padding: clamp(6px, 1.3cqw, 13px) clamp(8px, 1.8cqw, 18px);
+    padding: max(6px, 1.3cqw) max(8px, 1.8cqw);
     background: #f97316;
     color: #0b1220;
 }
@@ -1027,7 +1016,7 @@ onUnmounted(() => {
     display: flex;
     align-items: center;
     gap: 0.4em;
-    font-size: clamp(10px, 2.1cqw, 16px);
+    font-size: max(10px, 2.1cqw);
     font-weight: 900;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -1040,7 +1029,7 @@ onUnmounted(() => {
 }
 
 .airport-bar-clock {
-    font-size: clamp(8px, 1.5cqw, 12px);
+    font-size: max(8px, 1.5cqw);
     font-variant-numeric: tabular-nums;
     font-weight: 800;
     white-space: nowrap;
@@ -1051,14 +1040,14 @@ onUnmounted(() => {
     display: grid;
     grid-template-columns: 0.62fr 1.45fr 0.45fr 0.95fr;
     align-items: center;
-    gap: clamp(3px, 0.8cqw, 10px);
+    gap: max(3px, 0.8cqw);
 }
 
 .airport-columns {
-    padding: clamp(3px, 0.8cqw, 8px) clamp(8px, 1.8cqw, 18px);
+    padding: max(3px, 0.8cqw) max(8px, 1.8cqw);
     background: #111c2e;
     color: #94a3b8;
-    font-size: clamp(8px, 1.5cqw, 11px);
+    font-size: max(8px, 1.5cqw);
     font-weight: 800;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -1074,9 +1063,9 @@ onUnmounted(() => {
 .airport-row {
     flex: 1;
     border-top: 1px solid rgb(148 163 184 / 0.12);
-    padding: 0 clamp(8px, 1.8cqw, 18px);
+    padding: 0 max(8px, 1.8cqw);
     color: #e2e8f0;
-    font-size: clamp(9px, 2.15cqw, 14px);
+    font-size: max(9px, 2.15cqw);
 }
 
 .airport-row--extra {
@@ -1101,7 +1090,7 @@ onUnmounted(() => {
     overflow: hidden;
     margin-top: 1px;
     color: #94a3b8;
-    font-size: clamp(8px, 1.5cqw, 10px);
+    font-size: max(8px, 1.5cqw);
     font-weight: 700;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1126,7 +1115,7 @@ onUnmounted(() => {
     justify-self: start;
     border-radius: 999px;
     padding: 0.35em 0.7em;
-    font-size: clamp(8px, 1.4cqw, 10px);
+    font-size: max(8px, 1.4cqw);
     font-weight: 900;
     white-space: nowrap;
 }
@@ -1163,7 +1152,7 @@ onUnmounted(() => {
     flex-direction: column;
     justify-content: flex-end;
     overflow: hidden;
-    padding: clamp(12px, 2.6cqw, 26px);
+    padding: max(12px, 2.6cqw);
     background-image: linear-gradient(
         150deg,
         #1e40af 0%,
@@ -1186,7 +1175,7 @@ onUnmounted(() => {
 .airport-promo-eyebrow {
     margin: 0;
     color: #fde68a;
-    font-size: clamp(8px, 1.4cqw, 11px);
+    font-size: max(8px, 1.4cqw);
     font-weight: 900;
     letter-spacing: 0.16em;
     text-transform: uppercase;
@@ -1194,7 +1183,7 @@ onUnmounted(() => {
 
 .airport-promo-title {
     margin: 0.15em 0 0;
-    font-size: clamp(16px, 3.6cqw, 34px);
+    font-size: max(16px, 3.6cqw);
     font-weight: 900;
     line-height: 1.05;
 }
@@ -1202,7 +1191,7 @@ onUnmounted(() => {
 .airport-promo-text {
     margin: 0.4em 0 0;
     color: #dbeafe;
-    font-size: clamp(8px, 1.5cqw, 12px);
+    font-size: max(8px, 1.5cqw);
     font-weight: 600;
     line-height: 1.45;
 }
@@ -1230,7 +1219,7 @@ onUnmounted(() => {
     justify-content: space-between;
     gap: 8px;
     border-bottom: 1px solid #bae6fd;
-    padding: clamp(5px, 1.2cqw, 12px) clamp(8px, 1.8cqw, 18px);
+    padding: max(5px, 1.2cqw) max(8px, 1.8cqw);
     background: #ffffff;
 }
 
@@ -1252,8 +1241,8 @@ onUnmounted(() => {
 }
 
 .hospital-mark-icon {
-    width: clamp(9px, 1.8cqw, 18px);
-    height: clamp(9px, 1.8cqw, 18px);
+    width: max(9px, 1.8cqw);
+    height: max(9px, 1.8cqw);
 }
 
 .hospital-brand-text {
@@ -1263,7 +1252,7 @@ onUnmounted(() => {
 }
 
 .hospital-brand-text strong {
-    font-size: clamp(9px, 1.9cqw, 16px);
+    font-size: max(9px, 1.9cqw);
     font-weight: 900;
     white-space: nowrap;
 }
@@ -1272,7 +1261,7 @@ onUnmounted(() => {
     display: none;
     overflow: hidden;
     color: #475569;
-    font-size: clamp(8px, 1.3cqw, 10px);
+    font-size: max(8px, 1.3cqw);
     font-weight: 700;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1288,13 +1277,13 @@ onUnmounted(() => {
 .hospital-time span {
     display: none;
     color: #475569;
-    font-size: clamp(8px, 1.25cqw, 10px);
+    font-size: max(8px, 1.25cqw);
     font-weight: 700;
     white-space: nowrap;
 }
 
 .hospital-time strong {
-    font-size: clamp(12px, 2.4cqw, 22px);
+    font-size: max(12px, 2.4cqw);
     font-variant-numeric: tabular-nums;
     font-weight: 900;
     line-height: 1;
@@ -1305,14 +1294,14 @@ onUnmounted(() => {
     display: grid;
     grid-template-columns: 0.8fr 1.4fr 0.55fr 0.45fr;
     align-items: center;
-    gap: clamp(2px, 0.6cqw, 8px);
+    gap: max(2px, 0.6cqw);
 }
 
 .hospital-columns {
-    padding: clamp(2px, 0.6cqw, 6px) clamp(8px, 1.8cqw, 18px);
+    padding: max(2px, 0.6cqw) max(8px, 1.8cqw);
     background: #e2e8f0;
     color: #475569;
-    font-size: clamp(8px, 1.3cqw, 10px);
+    font-size: max(8px, 1.3cqw);
     font-weight: 900;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -1328,9 +1317,9 @@ onUnmounted(() => {
 .hospital-row {
     flex: 1;
     border-top: 1px solid #e2e8f0;
-    padding: 0 clamp(8px, 1.8cqw, 18px);
+    padding: 0 max(8px, 1.8cqw);
     color: #334155;
-    font-size: clamp(9px, 2.1cqw, 14px);
+    font-size: max(9px, 2.1cqw);
 }
 
 .hospital-row--extra {
@@ -1339,7 +1328,7 @@ onUnmounted(() => {
 
 .hospital-row > strong {
     color: #0f766e;
-    font-size: clamp(12px, 2.6cqw, 22px);
+    font-size: max(12px, 2.6cqw);
     font-variant-numeric: tabular-nums;
     font-weight: 900;
 }
@@ -1381,8 +1370,8 @@ onUnmounted(() => {
     flex-wrap: wrap;
     align-items: center;
     justify-content: center;
-    gap: clamp(6px, 1.6cqw, 14px);
-    padding: clamp(8px, 1.8cqw, 16px);
+    gap: max(6px, 1.6cqw);
+    padding: max(8px, 1.8cqw);
     background-image: linear-gradient(
         140deg,
         #115e59 0%,
@@ -1397,7 +1386,7 @@ onUnmounted(() => {
     margin: 0;
     align-items: center;
     gap: 0.4em;
-    font-size: clamp(8px, 1.3cqw, 10px);
+    font-size: max(8px, 1.3cqw);
     font-weight: 900;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -1412,7 +1401,7 @@ onUnmounted(() => {
 
 .hospital-call-number {
     margin: 0;
-    font-size: clamp(18px, 6cqw, 48px);
+    font-size: max(18px, 6cqw);
     font-variant-numeric: tabular-nums;
     font-weight: 900;
     line-height: 1;
@@ -1424,14 +1413,14 @@ onUnmounted(() => {
     padding: 0.15em 0.6em;
     background: #ffffff;
     color: #0e7490;
-    font-size: clamp(9px, 1.9cqw, 18px);
+    font-size: max(9px, 1.9cqw);
     font-weight: 900;
     white-space: nowrap;
 }
 
 .hospital-call-service {
     margin: 0;
-    font-size: clamp(8px, 1.5cqw, 12px);
+    font-size: max(8px, 1.5cqw);
     font-weight: 800;
     white-space: nowrap;
 }
@@ -1441,7 +1430,7 @@ onUnmounted(() => {
     max-width: 26ch;
     margin: 0;
     color: #cffafe;
-    font-size: clamp(8px, 1.4cqw, 11px);
+    font-size: max(8px, 1.4cqw);
     font-weight: 700;
 }
 
@@ -1460,7 +1449,7 @@ onUnmounted(() => {
     justify-content: space-between;
     gap: 8px;
     border-bottom: 1px solid rgb(255 255 255 / 0.1);
-    padding: clamp(5px, 1.2cqw, 12px) clamp(8px, 1.8cqw, 18px);
+    padding: max(5px, 1.2cqw) max(8px, 1.8cqw);
 }
 
 .restaurant-brand {
@@ -1481,8 +1470,8 @@ onUnmounted(() => {
 }
 
 .restaurant-mark-icon {
-    width: clamp(9px, 1.8cqw, 18px);
-    height: clamp(9px, 1.8cqw, 18px);
+    width: max(9px, 1.8cqw);
+    height: max(9px, 1.8cqw);
 }
 
 .restaurant-brand-text {
@@ -1492,7 +1481,7 @@ onUnmounted(() => {
 }
 
 .restaurant-brand-text strong {
-    font-size: clamp(9px, 1.9cqw, 16px);
+    font-size: max(9px, 1.9cqw);
     font-weight: 900;
     letter-spacing: -0.01em;
     white-space: nowrap;
@@ -1502,7 +1491,7 @@ onUnmounted(() => {
     display: none;
     overflow: hidden;
     color: #a8a29e;
-    font-size: clamp(8px, 1.3cqw, 10px);
+    font-size: max(8px, 1.3cqw);
     font-weight: 700;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1518,14 +1507,14 @@ onUnmounted(() => {
 .restaurant-time span {
     display: none;
     color: #a8a29e;
-    font-size: clamp(8px, 1.25cqw, 10px);
+    font-size: max(8px, 1.25cqw);
     font-weight: 700;
     white-space: nowrap;
 }
 
 .restaurant-time strong {
     color: #fdba74;
-    font-size: clamp(10px, 2cqw, 20px);
+    font-size: max(10px, 2cqw);
     font-variant-numeric: tabular-nums;
     font-weight: 900;
     line-height: 1;
@@ -1536,16 +1525,16 @@ onUnmounted(() => {
     min-height: 0;
     flex: 1;
     flex-direction: column;
-    padding: clamp(2px, 0.8cqw, 8px) clamp(8px, 1.8cqw, 18px);
+    padding: max(2px, 0.8cqw) max(8px, 1.8cqw);
 }
 
 .restaurant-item {
     display: flex;
     flex: 1;
     align-items: baseline;
-    gap: clamp(4px, 1cqw, 12px);
+    gap: max(4px, 1cqw);
     border-bottom: 1px dashed rgb(255 255 255 / 0.12);
-    padding: clamp(1px, 0.5cqw, 5px) 0;
+    padding: max(1px, 0.5cqw) 0;
 }
 
 .restaurant-item:last-child {
@@ -1561,7 +1550,7 @@ onUnmounted(() => {
 .restaurant-item-name {
     overflow: hidden;
     margin: 0;
-    font-size: clamp(9px, 2.1cqw, 15px);
+    font-size: max(9px, 2.1cqw);
     font-weight: 800;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1572,7 +1561,7 @@ onUnmounted(() => {
     overflow: hidden;
     margin: 0;
     color: #a8a29e;
-    font-size: clamp(8px, 1.4cqw, 10px);
+    font-size: max(8px, 1.4cqw);
     font-weight: 600;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1586,7 +1575,7 @@ onUnmounted(() => {
 
 .restaurant-item-price {
     color: #fdba74;
-    font-size: clamp(10px, 2.2cqw, 16px);
+    font-size: max(10px, 2.2cqw);
     font-variant-numeric: tabular-nums;
     font-weight: 900;
     white-space: nowrap;
@@ -1599,9 +1588,9 @@ onUnmounted(() => {
     gap: 8px;
     border-top: 1px solid rgb(255 255 255 / 0.1);
     background: rgb(249 115 22 / 0.12);
-    padding: clamp(4px, 1cqw, 9px) clamp(8px, 1.8cqw, 18px);
+    padding: max(4px, 1cqw) max(8px, 1.8cqw);
     color: #fed7aa;
-    font-size: clamp(8px, 1.3cqw, 10px);
+    font-size: max(8px, 1.3cqw);
     font-weight: 800;
 }
 
@@ -1664,7 +1653,7 @@ onUnmounted(() => {
 
     .hospital-call {
         flex-direction: column;
-        gap: clamp(4px, 1cqw, 10px);
+        gap: max(4px, 1cqw);
         text-align: center;
     }
 

@@ -5,9 +5,9 @@ import {
     Building,
     CalendarClock,
     Check,
+    ChevronDown,
     Hospital,
     Images,
-    Menu,
     MonitorCheck,
     Plane,
     Plug,
@@ -15,23 +15,15 @@ import {
     Users,
     Utensils,
     Volume2,
-    X,
 } from '@lucide/vue';
-import { computed, onUnmounted, ref, watch } from 'vue';
+import { computed } from 'vue';
 import AppLogoIcon from '@/components/AppLogoIcon.vue';
 import ScreenShowcase from '@/components/landing/ScreenShowcase.vue';
 import { dashboard, documentation, login, register } from '@/routes';
 
 const page = usePage();
 const isAuthenticated = computed(() => Boolean(page.props.auth?.user));
-const mobileNavOpen = ref(false);
 const currentYear = new Date().getFullYear();
-
-const navLinks = [
-    { label: 'Fitur', href: '#fitur' },
-    { label: 'Cara kerja', href: '#cara-kerja' },
-    { label: 'Template', href: '#template' },
-];
 
 const features = [
     {
@@ -135,26 +127,6 @@ const secondaryAction = computed(() =>
         ? { label: 'Baca dokumentasi', url: documentation() }
         : { label: 'Masuk', url: login() },
 );
-
-function handleEscape(event: KeyboardEvent): void {
-    if (event.key === 'Escape') {
-        mobileNavOpen.value = false;
-    }
-}
-
-watch(mobileNavOpen, (isOpen) => {
-    if (isOpen) {
-        window.addEventListener('keydown', handleEscape);
-
-        return;
-    }
-
-    window.removeEventListener('keydown', handleEscape);
-});
-
-onUnmounted(() => {
-    window.removeEventListener('keydown', handleEscape);
-});
 </script>
 
 <template>
@@ -165,7 +137,9 @@ onUnmounted(() => {
         />
     </Head>
 
-    <div class="min-h-dvh bg-[#060c18] text-slate-200 [color-scheme:dark]">
+    <div
+        class="h-dvh snap-y snap-mandatory overflow-y-auto scroll-smooth bg-[#060c18] text-slate-200 [color-scheme:dark] motion-reduce:scroll-auto"
+    >
         <a
             href="#konten"
             class="fixed top-4 left-4 z-[60] -translate-y-24 rounded-lg bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-lg transition-transform focus:translate-y-0 focus-visible:ring-2 focus-visible:ring-orange-400 motion-reduce:transition-none"
@@ -173,118 +147,11 @@ onUnmounted(() => {
             Lewati ke konten utama
         </a>
 
-        <header
-            class="sticky top-0 z-50 border-b border-white/10 bg-[#060c18]/85 backdrop-blur-xl"
-        >
-            <div
-                class="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-5 sm:h-18 sm:px-8 lg:px-10"
-            >
-                <Link
-                    href="/"
-                    class="flex items-center gap-2.5 rounded-lg focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#060c18] focus-visible:outline-none"
-                    aria-label="DISI — kembali ke beranda"
-                >
-                    <AppLogoIcon
-                        class="size-9 shrink-0 object-contain"
-                        width="36"
-                        height="36"
-                    />
-                    <span class="text-lg font-black tracking-tight text-white">
-                        DISI
-                    </span>
-                </Link>
-
-                <nav
-                    class="hidden items-center gap-1 md:flex"
-                    aria-label="Navigasi utama"
-                >
-                    <a
-                        v-for="link in navLinks"
-                        :key="link.href"
-                        :href="link.href"
-                        class="rounded-lg px-3 py-2 text-sm font-semibold text-slate-300 transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:outline-none"
-                    >
-                        {{ link.label }}
-                    </a>
-                </nav>
-
-                <div class="flex items-center gap-2">
-                    <Link
-                        v-if="!isAuthenticated"
-                        :href="login()"
-                        class="hidden rounded-lg px-3 py-2 text-sm font-semibold text-slate-300 transition-colors hover:text-white focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:outline-none sm:block"
-                    >
-                        Masuk
-                    </Link>
-                    <Link
-                        :href="primaryAction.url"
-                        class="hidden items-center gap-1.5 rounded-lg bg-orange-500 px-4 py-2.5 text-sm font-bold text-[#0b1220] shadow-lg shadow-orange-500/20 transition-colors hover:bg-orange-600 focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#060c18] focus-visible:outline-none sm:inline-flex"
-                    >
-                        {{ primaryAction.label }}
-                        <ArrowRight class="size-4" aria-hidden="true" />
-                    </Link>
-                    <button
-                        type="button"
-                        class="grid size-10 place-items-center rounded-lg border border-white/15 text-slate-200 transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:outline-none md:hidden"
-                        :aria-expanded="mobileNavOpen"
-                        aria-controls="navigasi-mobile"
-                        :aria-label="
-                            mobileNavOpen ? 'Tutup menu' : 'Buka menu navigasi'
-                        "
-                        @click="mobileNavOpen = !mobileNavOpen"
-                    >
-                        <X
-                            v-if="mobileNavOpen"
-                            class="size-5"
-                            aria-hidden="true"
-                        />
-                        <Menu v-else class="size-5" aria-hidden="true" />
-                    </button>
-                </div>
-            </div>
-
-            <div
-                v-if="mobileNavOpen"
-                id="navigasi-mobile"
-                class="border-t border-white/10 bg-[#060c18] md:hidden"
-            >
-                <nav
-                    class="mx-auto flex max-w-7xl flex-col gap-1 px-5 py-4 sm:px-8"
-                    aria-label="Navigasi seluler"
-                >
-                    <a
-                        v-for="link in navLinks"
-                        :key="link.href"
-                        :href="link.href"
-                        class="rounded-lg px-3 py-2.5 text-sm font-semibold text-slate-300 transition-colors hover:bg-white/5 hover:text-white focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:outline-none"
-                        @click="mobileNavOpen = false"
-                    >
-                        {{ link.label }}
-                    </a>
-                    <div class="mt-2 grid gap-2 border-t border-white/10 pt-4">
-                        <Link
-                            v-if="!isAuthenticated"
-                            :href="login()"
-                            class="rounded-lg border border-white/15 px-4 py-2.5 text-center text-sm font-semibold text-white transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:outline-none"
-                            @click="mobileNavOpen = false"
-                        >
-                            Masuk
-                        </Link>
-                        <Link
-                            :href="primaryAction.url"
-                            class="flex items-center justify-center gap-1.5 rounded-lg bg-orange-500 px-4 py-2.5 text-sm font-bold text-[#0b1220] transition-colors hover:bg-orange-600 focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:outline-none"
-                            @click="mobileNavOpen = false"
-                        >
-                            {{ primaryAction.label }}
-                            <ArrowRight class="size-4" aria-hidden="true" />
-                        </Link>
-                    </div>
-                </nav>
-            </div>
-        </header>
-
         <main id="konten">
-            <section class="relative overflow-hidden">
+            <section
+                aria-labelledby="judul-hero"
+                class="relative flex h-dvh snap-start flex-col overflow-y-auto"
+            >
                 <div
                     class="hero-glow pointer-events-none absolute inset-0"
                     aria-hidden="true"
@@ -295,7 +162,7 @@ onUnmounted(() => {
                 />
 
                 <div
-                    class="relative mx-auto grid max-w-7xl grid-cols-1 items-center gap-12 px-5 pt-12 pb-16 sm:px-8 lg:px-10 lg:pt-16 lg:pb-24 xl:grid-cols-[0.95fr_1.05fr] xl:gap-14"
+                    class="relative mx-auto my-auto grid w-full max-w-7xl grid-cols-1 items-center gap-12 px-5 py-12 sm:px-8 sm:py-14 lg:px-10 lg:py-16 xl:grid-cols-[0.95fr_1.05fr] xl:gap-14"
                 >
                     <div class="mx-auto w-full max-w-2xl min-w-0 lg:mx-0">
                         <p
@@ -305,6 +172,7 @@ onUnmounted(() => {
                             Platform digital signage
                         </p>
                         <h1
+                            id="judul-hero"
                             class="mt-5 text-4xl font-black tracking-tight text-balance text-white sm:text-5xl lg:text-6xl"
                         >
                             Satu dashboard untuk
@@ -368,15 +236,33 @@ onUnmounted(() => {
                         <ScreenShowcase />
                     </div>
                 </div>
+
+                <p
+                    class="relative mx-auto hidden shrink-0 items-center gap-1.5 pb-6 text-[11px] font-black tracking-[0.18em] text-slate-500 uppercase xl:flex"
+                    aria-hidden="true"
+                >
+                    Gulir
+                    <ChevronDown
+                        class="size-3.5 animate-bounce motion-reduce:animate-none"
+                    />
+                </p>
+            </section>
+
+            <section
+                id="pratinjau"
+                aria-label="Pratinjau tampilan layar"
+                class="h-dvh snap-start overflow-hidden border-t border-white/5 bg-[#050b18]"
+            >
+                <ScreenShowcase bare />
             </section>
 
             <section
                 id="fitur"
                 aria-labelledby="judul-fitur"
-                class="scroll-mt-24 border-t border-white/5"
+                class="flex h-dvh snap-start flex-col overflow-y-auto border-t border-white/5"
             >
                 <div
-                    class="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20 lg:px-10 lg:py-24"
+                    class="mx-auto my-auto w-full max-w-7xl px-[clamp(1.25rem,3vw,2.5rem)] py-[clamp(1rem,4.5dvh,4rem)]"
                 >
                     <div class="max-w-2xl">
                         <p
@@ -386,35 +272,43 @@ onUnmounted(() => {
                         </p>
                         <h2
                             id="judul-fitur"
-                            class="mt-3 text-3xl font-black tracking-tight text-balance text-white sm:text-4xl"
+                            class="mt-[clamp(0.35rem,1.2dvh,0.75rem)] text-[clamp(1.75rem,3.4vw,2.25rem)] font-black tracking-tight text-balance text-white"
                         >
                             Semua yang dibutuhkan untuk mengelola layar.
                         </h2>
-                        <p class="mt-4 text-base leading-7 text-slate-400">
+                        <p
+                            class="mt-[clamp(0.5rem,1.4dvh,1rem)] text-base leading-[clamp(1.4rem,3dvh,1.75rem)] text-slate-400"
+                        >
                             Dari unggah media sampai pemantauan perangkat —
                             dikerjakan dari satu tempat, oleh tim yang sama.
                         </p>
                     </div>
 
-                    <ul class="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <ul
+                        class="mt-[clamp(1rem,3.4dvh,2.5rem)] grid gap-[clamp(0.5rem,1.5dvh,1rem)] sm:grid-cols-3"
+                    >
                         <li
                             v-for="feature in features"
                             :key="feature.title"
-                            class="rounded-2xl border border-white/10 bg-white/[0.03] p-5 transition-colors hover:border-white/20 hover:bg-white/[0.06] sm:p-6"
+                            class="rounded-2xl border border-white/10 bg-white/[0.03] p-[clamp(0.8rem,2dvh,1.5rem)] transition-colors hover:border-white/20 hover:bg-white/[0.06]"
                         >
                             <span
-                                class="grid size-11 place-items-center rounded-xl bg-orange-500/15 text-orange-300 ring-1 ring-orange-400/20"
+                                class="grid size-[clamp(2.25rem,5dvh,2.75rem)] place-items-center rounded-xl bg-orange-500/15 text-orange-300 ring-1 ring-orange-400/20"
                             >
                                 <component
                                     :is="feature.icon"
-                                    class="size-5"
+                                    class="size-[clamp(1rem,2.4dvh,1.25rem)]"
                                     aria-hidden="true"
                                 />
                             </span>
-                            <h3 class="mt-5 text-base font-bold text-white">
+                            <h3
+                                class="mt-[clamp(0.4rem,1.5dvh,1.25rem)] text-base font-bold text-white"
+                            >
                                 {{ feature.title }}
                             </h3>
-                            <p class="mt-2 text-sm leading-6 text-slate-400">
+                            <p
+                                class="mt-[clamp(0.25rem,0.7dvh,0.5rem)] text-sm leading-[clamp(1.15rem,2.6dvh,1.5rem)] text-slate-400"
+                            >
                                 {{ feature.description }}
                             </p>
                         </li>
@@ -425,10 +319,10 @@ onUnmounted(() => {
             <section
                 id="cara-kerja"
                 aria-labelledby="judul-cara-kerja"
-                class="scroll-mt-24 border-y border-white/5 bg-white/[0.02]"
+                class="flex h-dvh snap-start flex-col overflow-y-auto border-y border-white/5 bg-white/[0.02]"
             >
                 <div
-                    class="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20 lg:px-10 lg:py-24"
+                    class="mx-auto my-auto w-full max-w-7xl px-5 py-12 sm:px-8 sm:py-14 lg:px-10 lg:py-16"
                 >
                     <div class="max-w-2xl">
                         <p
@@ -473,10 +367,10 @@ onUnmounted(() => {
             <section
                 id="template"
                 aria-labelledby="judul-template"
-                class="scroll-mt-24"
+                class="flex h-dvh snap-start flex-col overflow-y-auto"
             >
                 <div
-                    class="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20 lg:px-10 lg:py-24"
+                    class="mx-auto my-auto w-full max-w-7xl px-5 py-12 sm:px-8 sm:py-14 lg:px-10 lg:py-16"
                 >
                     <div
                         class="flex flex-col justify-between gap-6 sm:flex-row sm:items-end"
@@ -558,53 +452,64 @@ onUnmounted(() => {
             </section>
 
             <section
-                class="mx-auto max-w-7xl px-5 pb-16 sm:px-8 sm:pb-20 lg:px-10 lg:pb-24"
+                aria-labelledby="judul-cta"
+                class="flex h-dvh snap-start flex-col overflow-y-auto"
             >
                 <div
-                    class="relative overflow-hidden rounded-3xl border border-white/10 bg-[#0b1526] px-6 py-12 text-center sm:px-12 sm:py-16"
+                    class="mx-auto my-auto w-full max-w-7xl px-5 py-12 sm:px-8 sm:py-14 lg:px-10 lg:py-16"
                 >
                     <div
-                        class="cta-glow pointer-events-none absolute inset-0"
-                        aria-hidden="true"
-                    />
-                    <div class="relative">
-                        <h2
-                            class="text-3xl font-black tracking-tight text-balance text-white sm:text-4xl"
-                        >
-                            Siap menampilkan informasi di layar Anda?
-                        </h2>
-                        <p
-                            class="mx-auto mt-4 max-w-xl text-base leading-7 text-slate-300"
-                        >
-                            Mulai dengan satu layar hari ini. Tambah lokasi dan
-                            anggota tim kapan saja.
-                        </p>
+                        class="relative overflow-hidden rounded-3xl border border-white/10 bg-[#0b1526] px-6 py-12 text-center sm:px-12 sm:py-16"
+                    >
                         <div
-                            class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row"
-                        >
-                            <Link
-                                :href="primaryAction.url"
-                                class="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-orange-500 px-6 text-sm font-bold text-[#0b1220] shadow-lg shadow-orange-500/25 transition-colors hover:bg-orange-600 focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1526] focus-visible:outline-none"
+                            class="cta-glow pointer-events-none absolute inset-0"
+                            aria-hidden="true"
+                        />
+                        <div class="relative">
+                            <h2
+                                id="judul-cta"
+                                class="text-3xl font-black tracking-tight text-balance text-white sm:text-4xl"
                             >
-                                {{ primaryAction.label }}
-                                <ArrowRight class="size-4" aria-hidden="true" />
-                            </Link>
-                            <Link
-                                v-if="!isAuthenticated"
-                                :href="login()"
-                                class="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-6 text-sm font-bold text-white transition-colors hover:border-white/30 hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:outline-none"
+                                Siap menampilkan informasi di layar Anda?
+                            </h2>
+                            <p
+                                class="mx-auto mt-4 max-w-xl text-base leading-7 text-slate-300"
                             >
-                                Masuk ke akun
-                            </Link>
+                                Mulai dengan satu layar hari ini. Tambah lokasi
+                                dan anggota tim kapan saja.
+                            </p>
+                            <div
+                                class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row"
+                            >
+                                <Link
+                                    :href="primaryAction.url"
+                                    class="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-orange-500 px-6 text-sm font-bold text-[#0b1220] shadow-lg shadow-orange-500/25 transition-colors hover:bg-orange-600 focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1526] focus-visible:outline-none"
+                                >
+                                    {{ primaryAction.label }}
+                                    <ArrowRight
+                                        class="size-4"
+                                        aria-hidden="true"
+                                    />
+                                </Link>
+                                <Link
+                                    v-if="!isAuthenticated"
+                                    :href="login()"
+                                    class="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-6 text-sm font-bold text-white transition-colors hover:border-white/30 hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:outline-none"
+                                >
+                                    Masuk ke akun
+                                </Link>
+                            </div>
                         </div>
                     </div>
                 </div>
             </section>
         </main>
 
-        <footer class="border-t border-white/10">
+        <footer
+            class="flex h-dvh snap-start flex-col overflow-y-auto border-t border-white/10"
+        >
             <div
-                class="mx-auto grid max-w-7xl gap-10 px-5 py-12 sm:grid-cols-2 sm:px-8 lg:grid-cols-4 lg:px-10"
+                class="mx-auto my-auto grid w-full max-w-7xl gap-10 px-5 py-12 sm:grid-cols-2 sm:px-8 lg:grid-cols-4 lg:px-10"
             >
                 <div class="lg:col-span-2">
                     <div class="flex items-center gap-2.5">
@@ -634,6 +539,14 @@ onUnmounted(() => {
                         Produk
                     </p>
                     <ul class="mt-4 flex flex-col gap-2 text-sm">
+                        <li>
+                            <a
+                                href="#pratinjau"
+                                class="font-semibold text-slate-300 transition-colors hover:text-white"
+                            >
+                                Pratinjau layar
+                            </a>
+                        </li>
                         <li>
                             <a
                                 href="#fitur"
@@ -701,7 +614,8 @@ onUnmounted(() => {
                 <p
                     class="mx-auto max-w-7xl px-5 py-5 text-xs font-medium text-slate-400 sm:px-8 lg:px-10"
                 >
-                    © {{ currentYear }} DISI. Semua hak dilindungi.
+                    © {{ currentYear }} DISI · PT Megonesia Anugerah Nusantara.
+                    Semua hak dilindungi.
                 </p>
             </div>
         </footer>
