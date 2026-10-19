@@ -31,8 +31,17 @@
             }
         </style>
 
-        <link rel="icon" href="/disi-logo.svg" type="image/svg+xml" sizes="any">
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+        <link rel="icon" href="/favicon.ico" sizes="48x48">
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" sizes="any">
+        <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" sizes="180x180">
+        <link rel="manifest" href="/manifest.webmanifest">
+
+        <meta name="theme-color" content="#13295e" media="(prefers-color-scheme: light)">
+        <meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="apple-mobile-web-app-title" content="{{ config('app.name', 'Disi') }}">
 
         @fonts
 

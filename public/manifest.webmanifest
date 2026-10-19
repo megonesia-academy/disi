@@ -1,0 +1,74 @@
+{
+    "id": "/",
+    "name": "Disi - Digital Signage Dashboard",
+    "short_name": "Disi",
+    "description": "Kelola layar, playlist, media, dan perangkat digital signage dari satu dashboard.",
+    "start_url": "/dashboard",
+    "scope": "/",
+    "display": "standalone",
+    "display_override": ["standalone", "minimal-ui"],
+    "orientation": "any",
+    "background_color": "#13295e",
+    "theme_color": "#13295e",
+    "lang": "id",
+    "dir": "ltr",
+    "categories": ["business", "productivity"],
+    "icons": [
+        {
+            "src": "/pwa-192x192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "/pwa-512x512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "/maskable-icon-512x512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "Dashboard",
+            "short_name": "Dashboard",
+            "url": "/dashboard",
+            "icons": [
+                {
+                    "src": "/pwa-192x192.png",
+                    "sizes": "192x192",
+                    "type": "image/png"
+                }
+            ]
+        },
+        {
+            "name": "Screens",
+            "short_name": "Screens",
+            "url": "/screens",
+            "icons": [
+                {
+                    "src": "/pwa-192x192.png",
+                    "sizes": "192x192",
+                    "type": "image/png"
+                }
+            ]
+        },
+        {
+            "name": "Media",
+            "short_name": "Media",
+            "url": "/media-assets",
+            "icons": [
+                {
+                    "src": "/pwa-192x192.png",
+                    "sizes": "192x192",
+                    "type": "image/png"
+                }
+            ]
+        }
+    ]
+}

@@ -21,6 +21,7 @@ import {
 } from '@lucide/vue';
 import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
+import InstallAppButton from '@/components/InstallAppButton.vue';
 import NavFooter from '@/components/NavFooter.vue';
 import NavMain from '@/components/NavMain.vue';
 import NavUser from '@/components/NavUser.vue';
@@ -227,6 +228,7 @@ const navigationGroups = computed<NavGroup[]>(() =>
         </SidebarContent>
 
         <SidebarFooter class="border-t border-sidebar-border/80 bg-black/10">
+            <InstallAppButton />
             <NavFooter :items="footerNavItems" />
             <NavUser />
         </SidebarFooter>
