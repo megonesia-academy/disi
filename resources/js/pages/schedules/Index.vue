@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import InputError from '@/components/InputError.vue';
 import EmptyState from '@/components/EmptyState.vue';
+import SubmitButton from '@/components/SubmitButton.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Pencil, Plus, Save, Trash2, X } from '@lucide/vue';
 import { computed, ref } from 'vue';
 
 type ScreenOption = {
@@ -53,6 +55,7 @@ const dayOptions = [
 ];
 
 const editingId = ref<string | null>(null);
+const deletingId = ref<string | null>(null);
 
 const form = useForm({
     screen_id: '',
@@ -129,9 +132,13 @@ function destroySchedule(schedule: Schedule): void {
         return;
     }
 
+    deletingId.value = schedule.id;
     form.delete(`/schedules/${schedule.id}`, {
         preserveScroll: true,
         onSuccess: resetForm,
+        onFinish: () => {
+            deletingId.value = null;
+        },
     });
 }
 </script>
@@ -142,9 +149,7 @@ function destroySchedule(schedule: Schedule): void {
     <div class="flex h-full flex-1 flex-col gap-6 overflow-x-auto p-4">
         <section class="flex flex-wrap items-end justify-between gap-3">
             <div>
-                <h1 class="text-2xl font-semibold tracking-tight">
-                    Schedules
-                </h1>
+                <h1 class="text-2xl font-semibold tracking-tight">Schedules</h1>
                 <p class="text-sm text-muted-foreground">
                     Assign playlist ke screen untuk {{ tenant.name }}.
                 </p>
@@ -215,7 +220,7 @@ function destroySchedule(schedule: Schedule): void {
                         </label>
                         <select
                             v-model="form.screen_id"
-                            class="border-input h-9 w-full rounded-md border bg-background px-3 py-1 text-sm text-foreground shadow-xs outline-none option:bg-background option:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                            class="option:bg-background option:text-foreground h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                         >
                             <option value="">Select screen</option>
                             <option
@@ -235,7 +240,7 @@ function destroySchedule(schedule: Schedule): void {
                         </label>
                         <select
                             v-model="form.playlist_id"
-                            class="border-input h-9 w-full rounded-md border bg-background px-3 py-1 text-sm text-foreground shadow-xs outline-none option:bg-background option:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                            class="option:bg-background option:text-foreground h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                         >
                             <option value="">Select playlist</option>
                             <option
@@ -254,14 +259,20 @@ function destroySchedule(schedule: Schedule): void {
                             <label class="mb-1 block text-sm font-medium">
                                 Starts at
                             </label>
-                            <Input v-model="form.starts_at" type="datetime-local" />
+                            <Input
+                                v-model="form.starts_at"
+                                type="datetime-local"
+                            />
                             <InputError :message="form.errors.starts_at" />
                         </div>
                         <div>
                             <label class="mb-1 block text-sm font-medium">
                                 Ends at
                             </label>
-                            <Input v-model="form.ends_at" type="datetime-local" />
+                            <Input
+                                v-model="form.ends_at"
+                                type="datetime-local"
+                            />
                             <InputError :message="form.errors.ends_at" />
                         </div>
                     </div>
@@ -324,15 +335,21 @@ function destroySchedule(schedule: Schedule): void {
                     </label>
 
                     <div class="flex gap-2">
-                        <Button type="submit" :disabled="form.processing">
-                            {{ editingSchedule ? 'Update' : 'Create' }}
-                        </Button>
+                        <SubmitButton
+                            :processing="form.processing"
+                            :label="editingSchedule ? 'Update' : 'Create'"
+                            loading-label="Menyimpan..."
+                        >
+                            <Save v-if="editingSchedule" class="size-4" />
+                            <Plus v-else class="size-4" />
+                        </SubmitButton>
                         <Button
                             type="button"
                             variant="outline"
                             :disabled="form.processing"
                             @click="resetForm"
                         >
+                            <X class="size-4" />
                             Cancel
                         </Button>
                     </div>
@@ -411,23 +428,29 @@ function destroySchedule(schedule: Schedule): void {
                                             variant="outline"
                                             @click="editSchedule(schedule)"
                                         >
+                                            <Pencil class="size-4" />
                                             Edit
                                         </Button>
-                                        <Button
+                                        <SubmitButton
+                                            type="button"
                                             size="sm"
                                             variant="destructive"
+                                            title="Delete schedule"
+                                            aria-label="Delete schedule"
+                                            loading-label="Menghapus..."
+                                            :processing="
+                                                deletingId === schedule.id
+                                            "
                                             @click="destroySchedule(schedule)"
                                         >
+                                            <Trash2 class="size-4" />
                                             Delete
-                                        </Button>
+                                        </SubmitButton>
                                     </div>
                                 </td>
                             </tr>
                             <tr v-if="schedules.length === 0">
-                                <td
-                                    colspan="5"
-                                    class="px-4 py-6"
-                                >
+                                <td colspan="5" class="px-4 py-6">
                                     <EmptyState
                                         title="Belum ada schedule aktif"
                                         description="Schedule menghubungkan playlist ke screen. Tanpa schedule, player belum tahu konten mana yang harus tampil."

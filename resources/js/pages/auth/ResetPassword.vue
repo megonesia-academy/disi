@@ -1,18 +1,21 @@
 <script setup lang="ts">
+import { useMediaQuery } from '@vueuse/core';
 import { Form, Head } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { LockKeyhole } from '@lucide/vue';
+import { computed } from 'vue';
 import InputError from '@/components/InputError.vue';
 import PasswordInput from '@/components/PasswordInput.vue';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import SubmitButton from '@/components/SubmitButton.vue';
+import TextLink from '@/components/TextLink.vue';
 import { Label } from '@/components/ui/label';
-import { Spinner } from '@/components/ui/spinner';
-import { update } from '@/routes/password';
+import { describePasswordRules } from '@/lib/passwordRules';
+import { request, update } from '@/routes/password';
 
 defineOptions({
     layout: {
-        title: 'Reset password',
-        description: 'Please enter your new password below',
+        title: 'Atur password baru',
+        description:
+            'Buat password baru untuk akun Anda, lalu masuk kembali ke workspace.',
     },
 });
 
@@ -22,69 +25,108 @@ const props = defineProps<{
     passwordRules: string;
 }>();
 
-const inputEmail = ref(props.email);
+const isPointerFine = useMediaQuery('(pointer: fine)');
+const passwordHint = computed(() => describePasswordRules(props.passwordRules));
+
+const submitClass =
+    'h-11 w-full bg-orange-500 font-bold text-[#0b1220] shadow-lg shadow-orange-500/20 transition-colors hover:bg-orange-600 focus-visible:ring-orange-300/60 dark:bg-orange-500 dark:text-[#0b1220] dark:hover:bg-orange-400';
 </script>
 
 <template>
-    <Head title="Reset password" />
+    <Head title="Atur password baru" />
 
     <Form
         v-bind="update.form()"
+        v-slot="{ errors, processing }"
         :transform="(data) => ({ ...data, token, email })"
         :reset-on-success="['password', 'password_confirmation']"
-        v-slot="{ errors, processing }"
     >
-        <div class="grid gap-6">
+        <div class="grid gap-5">
             <div class="grid gap-2">
-                <Label for="email">Email</Label>
-                <Input
-                    id="email"
-                    type="email"
-                    name="email"
-                    autocomplete="email"
-                    v-model="inputEmail"
-                    class="mt-1 block w-full"
-                    readonly
-                />
-                <InputError :message="errors.email" class="mt-2" />
+                <p class="text-sm font-semibold">Email</p>
+                <p
+                    class="flex items-center gap-2.5 rounded-md border border-input bg-muted px-3 py-3 text-sm text-muted-foreground select-all"
+                >
+                    <LockKeyhole class="size-4 shrink-0" aria-hidden="true" />
+                    <span class="truncate">{{ props.email }}</span>
+                </p>
+                <p class="text-xs leading-5 text-muted-foreground">
+                    Tautan reset hanya berlaku untuk email ini.
+                </p>
             </div>
 
             <div class="grid gap-2">
-                <Label for="password">Password</Label>
+                <Label for="password" class="font-semibold">
+                    Password baru
+                </Label>
                 <PasswordInput
                     id="password"
                     name="password"
                     autocomplete="new-password"
-                    class="mt-1 block w-full"
-                    autofocus
-                    placeholder="Password"
-                    :passwordrules="passwordRules"
+                    placeholder="Buat password baru"
+                    required
+                    :autofocus="isPointerFine"
+                    :passwordrules="props.passwordRules"
+                    :aria-invalid="Boolean(errors.password)"
+                    :aria-describedby="
+                        [
+                            passwordHint ? 'password-hint' : null,
+                            errors.password ? 'password-error' : null,
+                        ]
+                            .filter(Boolean)
+                            .join(' ') || undefined
+                    "
+                    class="h-11"
                 />
-                <InputError :message="errors.password" />
+                <p
+                    v-if="passwordHint"
+                    id="password-hint"
+                    class="text-xs leading-5 text-muted-foreground"
+                >
+                    {{ passwordHint }}
+                </p>
+                <InputError id="password-error" :message="errors.password" />
             </div>
 
             <div class="grid gap-2">
-                <Label for="password_confirmation"> Confirm password </Label>
+                <Label for="password_confirmation" class="font-semibold">
+                    Konfirmasi password baru
+                </Label>
                 <PasswordInput
                     id="password_confirmation"
                     name="password_confirmation"
                     autocomplete="new-password"
-                    class="mt-1 block w-full"
-                    placeholder="Confirm password"
-                    :passwordrules="passwordRules"
+                    placeholder="Ulangi password baru"
+                    required
+                    :passwordrules="props.passwordRules"
+                    :aria-invalid="Boolean(errors.password_confirmation)"
+                    :aria-describedby="
+                        errors.password_confirmation
+                            ? 'password-confirmation-error'
+                            : undefined
+                    "
+                    class="h-11"
                 />
-                <InputError :message="errors.password_confirmation" />
+                <InputError
+                    id="password-confirmation-error"
+                    :message="errors.password_confirmation"
+                />
             </div>
 
-            <Button
-                type="submit"
-                class="mt-4 w-full"
-                :disabled="processing"
+            <SubmitButton
+                :processing="processing"
+                :class="submitClass"
                 data-test="reset-password-button"
-            >
-                <Spinner v-if="processing" />
-                Reset password
-            </Button>
+                label="Simpan password baru"
+                loading-label="Menyimpan password…"
+            />
+
+            <p class="text-center text-sm text-muted-foreground">
+                Tautan sudah kedaluwarsa?
+                <TextLink :href="request()" class="font-semibold">
+                    Minta tautan baru
+                </TextLink>
+            </p>
         </div>
     </Form>
 </template>

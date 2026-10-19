@@ -116,6 +116,11 @@ class SignageDemoSeeder extends Seeder
             ],
         );
 
+        PlaylistItem::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('playlist_id', $playlist->id)
+            ->delete();
+
         PlaylistItem::query()->updateOrCreate(
             [
                 'tenant_id' => $tenant->id,

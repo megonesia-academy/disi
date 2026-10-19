@@ -10,21 +10,35 @@ import {
 import { useCurrentUrl } from '@/composables/useCurrentUrl';
 import type { NavItem } from '@/types';
 
-defineProps<{
-    items: NavItem[];
-}>();
+withDefaults(
+    defineProps<{
+        items: NavItem[];
+        label?: string;
+    }>(),
+    {
+        label: 'Menu',
+    },
+);
 
-const { isCurrentUrl } = useCurrentUrl();
+const { isCurrentUrl, isCurrentOrParentUrl } = useCurrentUrl();
+
+function isActive(href: NavItem['href']): boolean {
+    const url = typeof href === 'string' ? href : href.url;
+
+    // Keep the admin dashboard item active only on the dashboard itself,
+    // otherwise every /admin/* page would match it.
+    return url === '/admin' ? isCurrentUrl(url) : isCurrentOrParentUrl(url);
+}
 </script>
 
 <template>
     <SidebarGroup class="px-2 py-0">
-        <SidebarGroupLabel>Platform</SidebarGroupLabel>
+        <SidebarGroupLabel>{{ label }}</SidebarGroupLabel>
         <SidebarMenu>
             <SidebarMenuItem v-for="item in items" :key="item.title">
                 <SidebarMenuButton
                     as-child
-                    :is-active="isCurrentUrl(item.href)"
+                    :is-active="isActive(item.href)"
                     :tooltip="item.title"
                 >
                     <Link :href="item.href">

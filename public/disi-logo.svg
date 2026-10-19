@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%" role="img" aria-label="DISI">
+  <rect width="64" height="64" rx="16" fill="#13295e"/>
+  <path
+    fill="#ffffff"
+    fill-rule="evenodd"
+    d="M16 14h10a18 18 0 0 1 0 36H16V14Zm10 9a9 9 0 0 1 0 18V23Z"
+    clip-rule="evenodd"
+  />
+  <circle cx="50" cy="17" r="6" fill="#f97316"/>
+</svg>

@@ -3,6 +3,7 @@ import { Form } from '@inertiajs/vue3';
 import { Eye, EyeOff, LockKeyhole, RefreshCw } from '@lucide/vue';
 import { nextTick, onMounted, ref, useTemplateRef } from 'vue';
 import AlertError from '@/components/AlertError.vue';
+import SubmitButton from '@/components/SubmitButton.vue';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -70,13 +71,14 @@ onMounted(async () => {
                     @success="fetchRecoveryCodes"
                     #default="{ processing }"
                 >
-                    <Button
+                    <SubmitButton
                         variant="secondary"
-                        type="submit"
-                        :disabled="processing"
+                        :processing="processing"
+                        label="Regenerate codes"
+                        loading-label="Regenerating..."
                     >
-                        <RefreshCw /> Regenerate codes
-                    </Button>
+                        <RefreshCw />
+                    </SubmitButton>
                 </Form>
             </div>
             <div

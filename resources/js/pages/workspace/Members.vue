@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { Button } from '@/components/ui/button';
+import SubmitButton from '@/components/SubmitButton.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Save, Trash2 } from '@lucide/vue';
+import { ref } from 'vue';
 
 type Member = {
     id: number;
@@ -30,6 +32,7 @@ const roleForms = new Map(
 );
 
 const removeForm = useForm({});
+const removingId = ref<number | null>(null);
 
 function roleForm(member: Member) {
     return roleForms.get(member.id)!;
@@ -46,8 +49,12 @@ function removeMember(member: Member): void {
         return;
     }
 
+    removingId.value = member.id;
     removeForm.delete(`/workspace/members/${member.id}`, {
         preserveScroll: true,
+        onFinish: () => {
+            removingId.value = null;
+        },
     });
 }
 </script>
@@ -56,7 +63,7 @@ function removeMember(member: Member): void {
     <Head title="Workspace Members" />
 
     <div
-        class="flex h-full flex-1 flex-col gap-6 overflow-x-auto bg-muted/20 p-4 md:p-6"
+        class="flex h-full flex-1 flex-col gap-6 overflow-x-auto bg-workspace p-4 md:p-6"
     >
         <section
             class="flex flex-wrap items-end justify-between gap-4 rounded-lg border bg-background p-5 shadow-sm"
@@ -67,9 +74,7 @@ function removeMember(member: Member): void {
                 >
                     Team access
                 </div>
-                <h1 class="text-2xl font-semibold tracking-tight">
-                    Members
-                </h1>
+                <h1 class="text-2xl font-semibold tracking-tight">Members</h1>
                 <p class="text-sm text-muted-foreground">
                     Kelola akses user untuk {{ tenant.name }}.
                 </p>
@@ -81,12 +86,6 @@ function removeMember(member: Member): void {
                     class="rounded-md border bg-background px-3 py-2 text-sm font-medium shadow-xs transition-colors hover:bg-accent"
                 >
                     Workspace
-                </Link>
-                <Link
-                    href="/activity"
-                    class="rounded-md border bg-background px-3 py-2 text-sm font-medium shadow-xs transition-colors hover:bg-accent"
-                >
-                    Activity
                 </Link>
             </div>
         </section>
@@ -164,7 +163,7 @@ function removeMember(member: Member): void {
                             <td class="px-4 py-3">
                                 <select
                                     v-model="roleForm(member).role"
-                                    class="border-input h-9 w-44 rounded-md border bg-background px-3 py-1 text-sm text-foreground shadow-xs outline-none option:bg-background option:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                                    class="option:bg-background option:text-foreground h-9 w-44 rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                                 >
                                     <option
                                         v-for="role in roles"
@@ -177,29 +176,38 @@ function removeMember(member: Member): void {
                             </td>
                             <td class="px-4 py-3 text-right">
                                 <div class="flex justify-end gap-2">
-                                    <Button
+                                    <SubmitButton
+                                        type="button"
                                         size="sm"
                                         variant="outline"
+                                        title="Update role"
+                                        loading-label="Menyimpan..."
+                                        :processing="
+                                            roleForm(member).processing
+                                        "
                                         :disabled="
-                                            roleForm(member).processing ||
                                             roleForm(member).role ===
-                                                member.role
+                                            member.role
                                         "
                                         @click="updateRole(member)"
                                     >
+                                        <Save class="size-4" />
                                         Update
-                                    </Button>
-                                    <Button
+                                    </SubmitButton>
+                                    <SubmitButton
+                                        type="button"
                                         size="sm"
                                         variant="destructive"
-                                        :disabled="
-                                            member.is_current_user ||
-                                            removeForm.processing
-                                        "
+                                        title="Remove member"
+                                        aria-label="Remove member"
+                                        loading-label="Menghapus..."
+                                        :processing="removingId === member.id"
+                                        :disabled="member.is_current_user"
                                         @click="removeMember(member)"
                                     >
+                                        <Trash2 class="size-4" />
                                         Remove
-                                    </Button>
+                                    </SubmitButton>
                                 </div>
                             </td>
                         </tr>

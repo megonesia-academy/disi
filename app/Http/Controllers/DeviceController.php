@@ -6,6 +6,7 @@ use App\Models\Device;
 use App\Models\DeviceCommand;
 use App\Models\Screen;
 use App\Models\Tenant;
+use App\Services\TenantBilling;
 use App\Support\ActivityLogger;
 use App\Support\CurrentTenant;
 use Illuminate\Http\RedirectResponse;
@@ -20,6 +21,7 @@ class DeviceController extends Controller
     public function __construct(
         private readonly CurrentTenant $currentTenant,
         private readonly ActivityLogger $activityLogger,
+        private readonly TenantBilling $billing,
     ) {}
 
     /**
@@ -73,6 +75,13 @@ class DeviceController extends Controller
             'statuses' => [
                 Device::STATUS_ONLINE,
                 Device::STATUS_OFFLINE,
+            ],
+            'usage' => [
+                'devices' => $tenant->devices()->count(),
+                'device_limit' => $this->billing->deviceLimit($tenant),
+                'free_devices' => $this->billing->freeLimit(TenantBilling::FEATURE_EXTRA_DEVICE),
+                'can_add_device' => $this->billing->canAddDevice($tenant),
+                'balance' => $tenant->token_balance,
             ],
         ]);
     }
@@ -177,12 +186,19 @@ class DeviceController extends Controller
     {
         $tenant = $this->currentTenant->resolve($request);
         $this->currentTenant->authorizeCanManage($request, $tenant);
+
+        if (! $this->billing->canAddDevice($tenant)) {
+            return back()->withErrors([
+                'billing' => 'Batas device paket Anda tercapai ('.$this->billing->deviceLimit($tenant).' device). Beli slot device tambahan di halaman Billing.',
+            ]);
+        }
+
         $validated = $this->validated($request, $tenant);
 
         $device = Device::query()->create([
             ...$validated,
             'tenant_id' => $tenant->id,
-            'key' => $validated['key'] ?: Str::slug($validated['name']).'-'.Str::lower(Str::random(6)),
+            'key' => ($validated['key'] ?? '') ?: Str::slug($validated['name']).'-'.Str::lower(Str::random(6)),
             'player_secret' => Str::random(48),
         ]);
 
@@ -208,7 +224,7 @@ class DeviceController extends Controller
 
         $device->update([
             ...$validated,
-            'key' => $validated['key'] ?: $device->key,
+            'key' => ($validated['key'] ?? '') ?: $device->key,
         ]);
 
         $this->activityLogger->log($request, $tenant, 'device.updated', $device, [

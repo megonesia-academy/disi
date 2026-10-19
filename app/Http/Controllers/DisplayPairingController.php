@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Device;
 use App\Models\DisplayPairingSession;
 use App\Models\Screen;
+use App\Services\TenantBilling;
 use App\Support\ActivityLogger;
 use App\Support\CurrentTenant;
 use Illuminate\Http\RedirectResponse;
@@ -19,6 +20,7 @@ class DisplayPairingController extends Controller
     public function __construct(
         private readonly CurrentTenant $currentTenant,
         private readonly ActivityLogger $activityLogger,
+        private readonly TenantBilling $billing,
     ) {}
 
     public function show(Request $request, string $code): Response
@@ -42,6 +44,13 @@ class DisplayPairingController extends Controller
                 ->where('is_active', true)
                 ->orderBy('name')
                 ->get(['id', 'name', 'location']),
+            'usage' => [
+                'devices' => $tenant->devices()->count(),
+                'device_limit' => $this->billing->deviceLimit($tenant),
+                'free_devices' => $this->billing->freeLimit(TenantBilling::FEATURE_EXTRA_DEVICE),
+                'can_add_device' => $this->billing->canAddDevice($tenant),
+                'balance' => $tenant->token_balance,
+            ],
         ]);
     }
 
@@ -49,6 +58,12 @@ class DisplayPairingController extends Controller
     {
         $tenant = $this->currentTenant->resolve($request);
         $this->currentTenant->authorizeCanManage($request, $tenant);
+
+        if (! $this->billing->canAddDevice($tenant)) {
+            return back()->withErrors([
+                'billing' => 'Batas device paket Anda tercapai ('.$this->billing->deviceLimit($tenant).' device). Beli slot device tambahan di halaman Billing sebelum pairing display baru.',
+            ]);
+        }
 
         $pairingSession = $this->activePairingSession($code);
 

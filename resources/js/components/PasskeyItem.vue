@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { KeyRound, Trash2 } from '@lucide/vue';
+import { KeyRound, Trash2, X } from '@lucide/vue';
 import { ref } from 'vue';
+import SubmitButton from '@/components/SubmitButton.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -79,15 +80,20 @@ const handleDelete = () => {
                 </DialogDescription>
                 <DialogFooter class="gap-2">
                     <DialogClose as-child>
-                        <Button variant="secondary">Cancel</Button>
+                        <Button variant="secondary"
+                            ><X class="size-4" />Cancel</Button
+                        >
                     </DialogClose>
-                    <Button
+                    <SubmitButton
+                        type="button"
                         variant="destructive"
-                        :disabled="isDeleting"
+                        :processing="isDeleting"
+                        label="Remove passkey"
+                        loading-label="Removing..."
                         @click="handleDelete"
                     >
-                        {{ isDeleting ? 'Removing...' : 'Remove passkey' }}
-                    </Button>
+                        <Trash2 class="size-4" />
+                    </SubmitButton>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

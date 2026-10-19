@@ -1,66 +1,92 @@
 <script setup lang="ts">
+import { useMediaQuery } from '@vueuse/core';
 import { Form, Head } from '@inertiajs/vue3';
+import { ArrowLeft, ArrowRight, MailCheck } from '@lucide/vue';
 import InputError from '@/components/InputError.vue';
+import SubmitButton from '@/components/SubmitButton.vue';
 import TextLink from '@/components/TextLink.vue';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Spinner } from '@/components/ui/spinner';
 import { login } from '@/routes';
 import { email } from '@/routes/password';
 
 defineOptions({
     layout: {
-        title: 'Forgot password',
-        description: 'Enter your email to receive a password reset link',
+        title: 'Lupa password?',
+        description:
+            'Masukkan email akun Anda. Kami akan mengirim tautan untuk membuat password baru.',
     },
 });
 
 defineProps<{
     status?: string;
 }>();
+
+const isPointerFine = useMediaQuery('(pointer: fine)');
+
+const submitClass =
+    'h-11 w-full bg-orange-500 font-bold text-[#0b1220] shadow-lg shadow-orange-500/20 transition-colors hover:bg-orange-600 focus-visible:ring-orange-300/60 dark:bg-orange-500 dark:text-[#0b1220] dark:hover:bg-orange-400';
 </script>
 
 <template>
-    <Head title="Forgot password" />
+    <Head title="Lupa password" />
 
-    <div
-        v-if="status"
-        class="mb-4 text-center text-sm font-medium text-green-600"
-    >
-        {{ status }}
-    </div>
+    <div class="grid gap-6">
+        <div
+            v-if="status"
+            role="status"
+            class="flex items-start gap-3 rounded-xl border border-emerald-300/70 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-400/30 dark:bg-emerald-500/10 dark:text-emerald-100"
+        >
+            <MailCheck class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            <div class="space-y-1">
+                <p class="font-semibold">Periksa kotak masuk Anda</p>
+                <p class="leading-6">
+                    Jika email tersebut terdaftar, kami sudah mengirim tautan
+                    untuk membuat password baru. Tautan berlaku selama 60 menit.
+                </p>
+            </div>
+        </div>
 
-    <div class="space-y-6">
-        <Form v-bind="email.form()" v-slot="{ errors, processing }">
+        <Form
+            v-bind="email.form()"
+            v-slot="{ errors, processing }"
+            class="grid gap-5"
+        >
             <div class="grid gap-2">
-                <Label for="email">Email address</Label>
+                <Label for="email" class="font-semibold">Email</Label>
                 <Input
                     id="email"
+                    v-focus="isPointerFine"
                     type="email"
                     name="email"
-                    autocomplete="off"
-                    v-focus
-                    placeholder="email@example.com"
+                    inputmode="email"
+                    autocomplete="email"
+                    spellcheck="false"
+                    required
+                    placeholder="nama@perusahaan.com"
+                    class="h-11"
+                    :aria-invalid="Boolean(errors.email)"
+                    :aria-describedby="errors.email ? 'email-error' : undefined"
                 />
-                <InputError :message="errors.email" />
+                <InputError id="email-error" :message="errors.email" />
             </div>
 
-            <div class="my-6 flex items-center justify-start">
-                <Button
-                    class="w-full"
-                    :disabled="processing"
-                    data-test="email-password-reset-link-button"
-                >
-                    <Spinner v-if="processing" />
-                    Email password reset link
-                </Button>
-            </div>
+            <SubmitButton
+                :processing="processing"
+                :class="submitClass"
+                data-test="email-password-reset-link-button"
+                label="Kirim tautan reset"
+                loading-label="Mengirim tautan…"
+            >
+                <ArrowRight class="size-4" aria-hidden="true" />
+            </SubmitButton>
         </Form>
 
-        <div class="space-x-1 text-center text-sm text-muted-foreground">
-            <span>Or, return to</span>
-            <TextLink :href="login()">log in</TextLink>
-        </div>
+        <p class="text-center text-sm">
+            <TextLink :href="login()" class="inline-flex items-center gap-1.5">
+                <ArrowLeft class="size-3.5" aria-hidden="true" />
+                Kembali ke halaman masuk
+            </TextLink>
+        </p>
     </div>
 </template>

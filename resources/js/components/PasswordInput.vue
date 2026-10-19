@@ -15,6 +15,9 @@ const props = defineProps<{
 const showPassword = ref(false);
 const inputRef = useTemplateRef('inputRef');
 
+const toggleLabel = () =>
+    showPassword.value ? 'Sembunyikan password' : 'Tampilkan password';
+
 defineExpose({
     $el: inputRef,
     focus: () => inputRef.value?.$el?.focus(),
@@ -27,22 +30,19 @@ defineExpose({
             v-focus="props.autofocus"
             ref="inputRef"
             :type="showPassword ? 'text' : 'password'"
-            :class="cn('pr-10', props.class)"
+            :class="cn('pr-11', props.class)"
             v-bind="$attrs"
         />
         <button
             type="button"
+            class="absolute inset-y-0 right-0 flex items-center rounded-r-md px-3 text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
+            :aria-label="toggleLabel()"
+            :aria-pressed="showPassword"
+            :title="toggleLabel()"
             @click="showPassword = !showPassword"
-            :class="
-                cn(
-                    'absolute inset-y-0 right-0 flex items-center rounded-r-md px-3 text-muted-foreground hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none',
-                )
-            "
-            :aria-label="showPassword ? 'Hide password' : 'Show password'"
-            :tabindex="-1"
         >
-            <EyeOff v-if="showPassword" class="size-4" />
-            <Eye v-else class="size-4" />
+            <EyeOff v-if="showPassword" class="size-4" aria-hidden="true" />
+            <Eye v-else class="size-4" aria-hidden="true" />
         </button>
     </div>
 </template>

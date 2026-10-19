@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { Form, Head, setLayoutProps } from '@inertiajs/vue3';
+import { ArrowRight, KeyRound } from '@lucide/vue';
 import { computed, ref, watchEffect } from 'vue';
 import InputError from '@/components/InputError.vue';
-import { Button } from '@/components/ui/button';
+import SubmitButton from '@/components/SubmitButton.vue';
 import { Input } from '@/components/ui/input';
 import {
     InputOTP,
@@ -82,9 +83,14 @@ const toggleRecoveryMode = (clearErrors: () => void): void => {
                     </div>
                     <InputError :message="errors.code" />
                 </div>
-                <Button type="submit" class="w-full" :disabled="processing"
-                    >Continue</Button
+                <SubmitButton
+                    :processing="processing"
+                    class="w-full"
+                    label="Continue"
+                    loading-label="Verifying..."
                 >
+                    <ArrowRight class="size-4" />
+                </SubmitButton>
                 <div class="text-center text-sm text-muted-foreground">
                     <span>or you can </span>
                     <button
@@ -92,6 +98,7 @@ const toggleRecoveryMode = (clearErrors: () => void): void => {
                         class="text-foreground underline decoration-neutral-300 underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current! dark:decoration-neutral-500"
                         @click="() => toggleRecoveryMode(clearErrors)"
                     >
+                        <KeyRound class="mr-1 inline size-3.5" />
                         {{ authConfigContent.buttonText }}
                     </button>
                 </div>
@@ -113,9 +120,14 @@ const toggleRecoveryMode = (clearErrors: () => void): void => {
                     required
                 />
                 <InputError :message="errors.recovery_code" />
-                <Button type="submit" class="w-full" :disabled="processing"
-                    >Continue</Button
+                <SubmitButton
+                    :processing="processing"
+                    class="w-full"
+                    label="Continue"
+                    loading-label="Verifying..."
                 >
+                    <ArrowRight class="size-4" />
+                </SubmitButton>
 
                 <div class="text-center text-sm text-muted-foreground">
                     <span>or you can </span>
@@ -124,6 +136,7 @@ const toggleRecoveryMode = (clearErrors: () => void): void => {
                         class="text-foreground underline decoration-neutral-300 underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current! dark:decoration-neutral-500"
                         @click="() => toggleRecoveryMode(clearErrors)"
                     >
+                        <KeyRound class="mr-1 inline size-3.5" />
                         {{ authConfigContent.buttonText }}
                     </button>
                 </div>

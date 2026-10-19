@@ -41,7 +41,11 @@ it('renders workspace members for managers', function (): void {
             ->component('workspace/Members')
             ->where('tenant.id', $tenant->id)
             ->has('members', 2)
-            ->where('members.1.email', $member->email));
+            ->where('members', fn ($members): bool => collect($members)
+                ->pluck('email')
+                ->sort()
+                ->values()
+                ->all() === collect([$manager->email, $member->email])->sort()->values()->all()));
 });
 
 it('updates a member role and records activity', function (): void {

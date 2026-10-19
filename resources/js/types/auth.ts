@@ -1,7 +1,10 @@
+export type AppRole = 'admin' | 'subscriber';
+
 export type User = {
     id: number;
     name: string;
     email: string;
+    app_role?: AppRole;
     avatar?: string;
     email_verified_at: string | null;
     two_factor_enabled?: boolean;
@@ -12,6 +15,7 @@ export type User = {
 
 export type Auth = {
     user: User;
+    can_manage_platform?: boolean;
 };
 
 export type TenantSummary = {
@@ -19,6 +23,9 @@ export type TenantSummary = {
     name: string;
     slug: string;
     status: string;
+    token_balance?: number;
+    subscription_status?: string;
+    monthly_subscription_cost?: number;
     role?: string | null;
     can_manage?: boolean;
 };

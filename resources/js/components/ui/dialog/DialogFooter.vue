@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { X } from '@lucide/vue';
 import type { HTMLAttributes } from "vue"
 import { DialogClose } from "reka-ui"
 import { cn } from "@/lib/utils"
@@ -20,6 +21,7 @@ const props = withDefaults(defineProps<{
     <slot />
     <DialogClose v-if="showCloseButton" as-child>
       <Button variant="outline">
+        <X class="size-4" />
         Close
       </Button>
     </DialogClose>

@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { usePasskeyRegister } from '@laravel/passkeys/vue';
+import { KeyRound, X } from '@lucide/vue';
 import { ref } from 'vue';
 import InputError from '@/components/InputError.vue';
+import SubmitButton from '@/components/SubmitButton.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -65,6 +67,7 @@ const handleCancel = () => {
     </div>
 
     <Button v-else-if="!showForm" variant="outline" @click="showForm = true">
+        <KeyRound class="size-4" />
         Add passkey
     </Button>
 
@@ -91,10 +94,16 @@ const handleCancel = () => {
         <InputError v-if="error" :message="error" />
 
         <div class="flex gap-2">
-            <Button type="submit" :disabled="isLoading || !name.trim()">
-                {{ isLoading ? 'Registering...' : 'Register passkey' }}
-            </Button>
+            <SubmitButton
+                :processing="isLoading"
+                :disabled="!name.trim()"
+                label="Register passkey"
+                loading-label="Registering..."
+            >
+                <KeyRound class="size-4" />
+            </SubmitButton>
             <Button type="button" variant="ghost" @click="handleCancel">
+                <X class="size-4" />
                 Cancel
             </Button>
         </div>

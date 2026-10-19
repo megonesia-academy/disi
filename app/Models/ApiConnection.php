@@ -21,4 +21,9 @@ class ApiConnection extends Model
     {
         return $this->belongsTo(Tenant::class);
     }
+
+    public function isPlatform(): bool
+    {
+        return $this->tenant_id === null;
+    }
 }

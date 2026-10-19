@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Device;
 use App\Models\DeviceCommand;
+use App\Models\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -17,6 +18,10 @@ class PlayerHeartbeatController extends Controller
     {
         abort_unless($device->is_active, 404);
         abort_unless($device->hasValidPlayerSecret($request->query('token')), 404);
+        abort_unless(
+            $device->tenant()->where('status', Tenant::STATUS_ACTIVE)->exists(),
+            404,
+        );
 
         $validated = $request->validate([
             'app_version' => ['nullable', 'string', 'max:255'],

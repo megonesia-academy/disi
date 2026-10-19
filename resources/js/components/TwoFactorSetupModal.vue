@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { Form } from '@inertiajs/vue3';
 import { useClipboard } from '@vueuse/core';
-import { Check, Copy, ScanLine } from '@lucide/vue';
+import { ArrowLeft, ArrowRight, Check, Copy, ScanLine } from '@lucide/vue';
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue';
 import AlertError from '@/components/AlertError.vue';
 import InputError from '@/components/InputError.vue';
+import SubmitButton from '@/components/SubmitButton.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -186,6 +187,7 @@ watch(
 
                         <div class="flex w-full items-center space-x-5">
                             <Button class="w-full" @click="handleModalNextStep">
+                                <ArrowRight class="size-4" />
                                 {{ modalConfig.buttonText }}
                             </Button>
                         </div>
@@ -279,15 +281,18 @@ watch(
                                     @click="showVerificationStep = false"
                                     :disabled="processing"
                                 >
+                                    <ArrowLeft class="size-4" />
                                     Back
                                 </Button>
-                                <Button
-                                    type="submit"
+                                <SubmitButton
                                     class="w-auto flex-1"
-                                    :disabled="processing || code.length < 6"
+                                    :processing="processing"
+                                    :disabled="code.length < 6"
+                                    label="Confirm"
+                                    loading-label="Memverifikasi..."
                                 >
-                                    Confirm
-                                </Button>
+                                    <Check class="size-4" />
+                                </SubmitButton>
                             </div>
                         </div>
                     </Form>

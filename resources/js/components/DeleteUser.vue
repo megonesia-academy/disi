@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { Form } from '@inertiajs/vue3';
+import { Trash2, X } from '@lucide/vue';
 import { useTemplateRef } from 'vue';
 import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
 import PasswordInput from '@/components/PasswordInput.vue';
+import SubmitButton from '@/components/SubmitButton.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -22,26 +24,33 @@ const passwordInput = useTemplateRef('passwordInput');
 </script>
 
 <template>
-    <div class="space-y-6">
-        <Heading
-            variant="small"
-            title="Delete account"
-            description="Delete your account and all of its resources"
-        />
-        <div
-            class="space-y-4 rounded-lg border border-red-100 bg-red-50 p-4 dark:border-red-200/10 dark:bg-red-700/10"
-        >
-            <div class="relative space-y-0.5 text-red-600 dark:text-red-100">
-                <p class="font-medium">Warning</p>
-                <p class="text-sm">
-                    Please proceed with caution, this cannot be undone.
+    <section class="overflow-hidden rounded-lg border bg-background shadow-sm">
+        <div class="border-b p-5">
+            <Heading
+                variant="small"
+                title="Hapus akun"
+                description="Hapus akun Anda beserta seluruh data yang terkait."
+            />
+        </div>
+
+        <div class="space-y-4 p-5">
+            <div
+                class="rounded-md border border-red-200 bg-red-50 p-4 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200"
+            >
+                <p class="font-medium">Peringatan</p>
+                <p class="mt-0.5 text-sm">
+                    Tindakan ini permanen dan tidak dapat dibatalkan.
                 </p>
             </div>
+
             <Dialog>
                 <DialogTrigger as-child>
-                    <Button variant="destructive" data-test="delete-user-button"
-                        >Delete account</Button
+                    <Button
+                        variant="destructive"
+                        data-test="delete-user-button"
                     >
+                        <Trash2 class="size-4" /> Hapus akun
+                    </Button>
                 </DialogTrigger>
                 <DialogContent>
                     <Form
@@ -55,23 +64,19 @@ const passwordInput = useTemplateRef('passwordInput');
                         v-slot="{ errors, processing, reset, clearErrors }"
                     >
                         <DialogHeader class="space-y-3">
-                            <DialogTitle
-                                >Are you sure you want to delete your
-                                account?</DialogTitle
-                            >
+                            <DialogTitle>
+                                Yakin ingin menghapus akun Anda?
+                            </DialogTitle>
                             <DialogDescription>
-                                Once your account is deleted, all of its
-                                resources and data will also be permanently
-                                deleted. Please enter your password to confirm
-                                you would like to permanently delete your
-                                account.
+                                Seluruh data akun akan dihapus permanen.
+                                Masukkan password Anda untuk mengonfirmasi.
                             </DialogDescription>
                         </DialogHeader>
 
                         <div class="grid gap-2">
-                            <Label for="password" class="sr-only"
-                                >Password</Label
-                            >
+                            <Label for="password" class="sr-only">
+                                Password
+                            </Label>
                             <PasswordInput
                                 id="password"
                                 name="password"
@@ -92,22 +97,24 @@ const passwordInput = useTemplateRef('passwordInput');
                                         }
                                     "
                                 >
-                                    Cancel
+                                    <X class="size-4" />
+                                    Batal
                                 </Button>
                             </DialogClose>
 
-                            <Button
-                                type="submit"
+                            <SubmitButton
                                 variant="destructive"
-                                :disabled="processing"
+                                :processing="processing"
                                 data-test="confirm-delete-user-button"
+                                label="Hapus akun"
+                                loading-label="Menghapus..."
                             >
-                                Delete account
-                            </Button>
+                                <Trash2 class="size-4" />
+                            </SubmitButton>
                         </DialogFooter>
                     </Form>
                 </DialogContent>
             </Dialog>
         </div>
-    </div>
+    </section>
 </template>

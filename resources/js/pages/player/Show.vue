@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { isImageMedia, isVideoMedia, type MediaAssetType } from '@/lib/media';
 import {
     computeMediaBox,
     initSignageCore,
@@ -11,7 +12,7 @@ import {
 type Media = {
     id: string;
     name: string;
-    type: 'image' | 'video' | 'audio' | 'web';
+    type: MediaAssetType;
     url: string | null;
     mime_type: string | null;
     duration_seconds: number | null;
@@ -23,14 +24,27 @@ type Media = {
 type TickerOverlay = {
     type: 'ticker';
     text: string;
-    position?: 'top' | 'bottom' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+    position?:
+        | 'top'
+        | 'bottom'
+        | 'top-left'
+        | 'top-right'
+        | 'bottom-left'
+        | 'bottom-right';
     speed?: number;
     text_color?: string;
     background_color?: string;
     source?: 'static' | 'array';
     items?: string[];
     format?: '24h' | '12h';
-    weather?: { temperature?: unknown; humidity?: unknown; weather_code?: unknown; wind_speed?: unknown; location?: unknown; updated_at?: unknown };
+    weather?: {
+        temperature?: unknown;
+        humidity?: unknown;
+        weather_code?: unknown;
+        wind_speed?: unknown;
+        location?: unknown;
+        updated_at?: unknown;
+    };
 };
 
 type PlaylistOverlay = {
@@ -48,7 +62,12 @@ type PlaylistItem = {
     template?: string;
     content?: Record<string, unknown>;
     template_id?: string | null;
-    template_definition?: { name: string; html: string; css: string | null; schema: Array<Record<string, unknown>> } | null;
+    template_definition?: {
+        name: string;
+        html: string;
+        css: string | null;
+        schema: Array<Record<string, unknown>>;
+    } | null;
     config: {
         fit?: MediaFit;
         overlays?: TickerOverlay[];
@@ -61,7 +80,13 @@ type PlaylistItem = {
         left_width: number;
         right_width: number;
     } | null;
-    audio?: { id: string; name: string; url: string; mime_type: string | null; loop: boolean } | null;
+    audio?: {
+        id: string;
+        name: string;
+        url: string;
+        mime_type: string | null;
+        loop: boolean;
+    } | null;
     media: Media | null;
 };
 
@@ -189,7 +214,11 @@ const brandColor = computed(() => {
 });
 
 const brandLabel = computed(() => {
-    return manifest.value?.branding.label ?? manifest.value?.screen.name ?? props.deviceKey;
+    return (
+        manifest.value?.branding.label ??
+        manifest.value?.screen.name ??
+        props.deviceKey
+    );
 });
 
 const mediaFitClass = computed(() => {
@@ -229,26 +258,43 @@ const weatherOverlays = computed(() => {
     );
 });
 
-function weatherOverlayData(overlay: PlaylistOverlay): { temperature: string; humidity: string; condition: string; wind: string | null; location: string } {
+function weatherOverlayData(overlay: PlaylistOverlay): {
+    temperature: string;
+    humidity: string;
+    condition: string;
+    wind: string | null;
+    location: string;
+} {
     const weather = overlay.config.weather ?? {};
     const wind = weather.wind_speed;
 
     return {
-        temperature: weather.temperature === null || weather.temperature === undefined ? '-' : `${weather.temperature} °C`,
-        humidity: weather.humidity === null || weather.humidity === undefined ? '-' : `${weather.humidity}%`,
+        temperature:
+            weather.temperature === null || weather.temperature === undefined
+                ? '-'
+                : `${weather.temperature} °C`,
+        humidity:
+            weather.humidity === null || weather.humidity === undefined
+                ? '-'
+                : `${weather.humidity}%`,
         condition: weatherCondition(weather.weather_code),
-        wind: wind === null || wind === undefined || wind === '' ? null : `${wind} km/h`,
+        wind:
+            wind === null || wind === undefined || wind === ''
+                ? null
+                : `${wind} km/h`,
         location: String(weather.location ?? 'Weather'),
     };
 }
 
 function weatherOverlayPositionClass(position?: string): string {
-    return {
-        'top-left': 'top-4 left-4',
-        'top-right': 'top-4 right-4',
-        'bottom-left': 'bottom-4 left-4',
-        'bottom-right': 'bottom-4 right-4',
-    }[position ?? 'top-right'] ?? 'top-4 right-4';
+    return (
+        {
+            'top-left': 'top-4 left-4',
+            'top-right': 'top-4 right-4',
+            'bottom-left': 'bottom-4 left-4',
+            'bottom-right': 'bottom-4 right-4',
+        }[position ?? 'top-right'] ?? 'top-4 right-4'
+    );
 }
 
 function tickerText(overlay: TickerOverlay): string {
@@ -273,12 +319,14 @@ function tickerAnimationStyle(overlay: TickerOverlay): Record<string, string> {
 }
 
 function clockPositionClass(position?: string): string {
-    return {
-        'top-left': 'top-4 left-4',
-        'top-right': 'top-4 right-4',
-        'bottom-left': 'bottom-4 left-4',
-        'bottom-right': 'bottom-4 right-4',
-    }[position ?? 'top-right'] ?? 'top-4 right-4';
+    return (
+        {
+            'top-left': 'top-4 left-4',
+            'top-right': 'top-4 right-4',
+            'bottom-left': 'bottom-4 left-4',
+            'bottom-right': 'bottom-4 right-4',
+        }[position ?? 'top-right'] ?? 'top-4 right-4'
+    );
 }
 
 function overlayOffsetStyle(overlay: TickerOverlay): Record<string, string> {
@@ -338,7 +386,10 @@ const logoPositionClass = computed(() => {
         'bottom-right': 'right-4 bottom-4',
     };
 
-    return positions[manifest.value?.branding.logo_position ?? 'top-right'] ?? positions['top-right'];
+    return (
+        positions[manifest.value?.branding.logo_position ?? 'top-right'] ??
+        positions['top-right']
+    );
 });
 
 const logoStyle = computed(() => {
@@ -356,8 +407,10 @@ const logoStyle = computed(() => {
     if (position.includes('top')) style.top = `calc(1rem + ${offsetY}px)`;
     if (position.includes('bottom')) style.bottom = `calc(1rem - ${offsetY}px)`;
     if (position.includes('center') || position === 'center') {
-        if (!position.includes('left') && !position.includes('right')) style.marginLeft = `${offsetX}px`;
-        if (!position.includes('top') && !position.includes('bottom')) style.marginTop = `${offsetY}px`;
+        if (!position.includes('left') && !position.includes('right'))
+            style.marginLeft = `${offsetX}px`;
+        if (!position.includes('top') && !position.includes('bottom'))
+            style.marginTop = `${offsetY}px`;
     }
 
     return style;
@@ -481,13 +534,19 @@ function configurePlayerTimers(): void {
     const heartbeatSeconds =
         manifest.value?.branding.behavior.heartbeat_interval_seconds ?? 30;
 
-    refreshTimer = window.setInterval(() => {
-        void loadManifest();
-    }, Math.max(refreshSeconds, 10) * 1000);
+    refreshTimer = window.setInterval(
+        () => {
+            void loadManifest();
+        },
+        Math.max(refreshSeconds, 10) * 1000,
+    );
 
-    heartbeatTimer = window.setInterval(() => {
-        void sendHeartbeat();
-    }, Math.max(heartbeatSeconds, 5) * 1000);
+    heartbeatTimer = window.setInterval(
+        () => {
+            void sendHeartbeat();
+        },
+        Math.max(heartbeatSeconds, 5) * 1000,
+    );
 }
 
 async function preloadManifestMedia(nextManifest: Manifest): Promise<void> {
@@ -528,7 +587,11 @@ function uniquePreloadableMedia(nextManifest: Manifest): Media[] {
     const mediaByUrl = new Map<string, Media>();
 
     for (const item of nextManifest.playlist.items) {
-        if (!item.media || !item.media.url || !['image', 'video'].includes(item.media.type)) {
+        if (
+            !item.media ||
+            !item.media.url ||
+            !(isImageMedia(item.media.type) || isVideoMedia(item.media.type))
+        ) {
             continue;
         }
 
@@ -539,11 +602,11 @@ function uniquePreloadableMedia(nextManifest: Manifest): Media[] {
 }
 
 function preloadMedia(media: Media): Promise<boolean> {
-    if (media.type === 'image') {
+    if (isImageMedia(media.type)) {
         return preloadImage(media.url);
     }
 
-    if (media.type === 'video') {
+    if (isVideoMedia(media.type)) {
         return preloadVideo(media.url);
     }
 
@@ -597,17 +660,15 @@ function summarizeMediaReadiness(
         ready,
         failed,
         pending,
-        status:
-            failed > 0
-                ? 'degraded'
-                : pending > 0
-                  ? 'warming'
-                  : 'ready',
+        status: failed > 0 ? 'degraded' : pending > 0 ? 'warming' : 'ready',
         updated_at: new Date().toISOString(),
     };
 }
 
-function cacheManifestMedia(nextManifest: Manifest, worker: ServiceWorker | null): void {
+function cacheManifestMedia(
+    nextManifest: Manifest,
+    worker: ServiceWorker | null,
+): void {
     if (!worker) {
         return;
     }
@@ -615,7 +676,13 @@ function cacheManifestMedia(nextManifest: Manifest, worker: ServiceWorker | null
     worker.postMessage({
         type: 'CACHE_MEDIA',
         urls: nextManifest.playlist.items
-            .filter((item) => item.media && item.media.url && (item.media.type === 'image' || item.media.type === 'video'))
+            .filter(
+                (item) =>
+                    item.media &&
+                    item.media.url &&
+                    (isImageMedia(item.media.type) ||
+                        isVideoMedia(item.media.type)),
+            )
             .map((item) => item.media!.url!),
     });
 }
@@ -626,9 +693,12 @@ async function registerPlayerServiceWorker(): Promise<void> {
     }
 
     try {
-        const registration = await navigator.serviceWorker.register('/player-sw.js', {
-            scope: '/player/',
-        });
+        const registration = await navigator.serviceWorker.register(
+            '/player-sw.js',
+            {
+                scope: '/player/',
+            },
+        );
         await navigator.serviceWorker.ready;
         serviceWorkerReady.value = true;
         if (manifest.value) {
@@ -667,7 +737,9 @@ async function sendHeartbeat(): Promise<void> {
                     video: true,
                     wasm: typeof WebAssembly !== 'undefined',
                     rust_wasm: wasmCoreReady.value,
-                    layout_engine: wasmCoreReady.value ? 'rust-wasm' : 'js-fallback',
+                    layout_engine: wasmCoreReady.value
+                        ? 'rust-wasm'
+                        : 'js-fallback',
                     manifest_source: manifestSource.value,
                     manifest_cached: manifestSource.value === 'cache',
                     manifest_cached_at: manifestCachedAt.value,
@@ -723,9 +795,12 @@ async function handleCommands(commands: PlayerCommand[]): Promise<void> {
                 window.clearTimeout(identifyTimer);
             }
 
-            identifyTimer = window.setTimeout(() => {
-                identifyMessage.value = null;
-            }, Math.max(duration, 1) * 1000);
+            identifyTimer = window.setTimeout(
+                () => {
+                    identifyMessage.value = null;
+                },
+                Math.max(duration, 1) * 1000,
+            );
 
             void acknowledgeCommand(command);
         }
@@ -810,14 +885,18 @@ function onMediaError(): void {
 function templateTitle(item: PlaylistItem): string {
     const content = item.content ?? {};
 
-    return String(content.title ?? {
-        announcement: 'Announcement',
-        'data-table': 'Data table',
-        'patient-queue': 'Patient queue',
-        'flight-board': 'Flight board',
-        menu: 'Menu',
-        weather: 'Weather',
-    }[item.template ?? ''] ?? 'Content');
+    return String(
+        content.title ??
+            {
+                announcement: 'Announcement',
+                'data-table': 'Data table',
+                'patient-queue': 'Patient queue',
+                'flight-board': 'Flight board',
+                menu: 'Menu',
+                weather: 'Weather',
+            }[item.template ?? ''] ??
+            'Content',
+    );
 }
 
 function templateRows(item: PlaylistItem): string[] {
@@ -827,7 +906,10 @@ function templateRows(item: PlaylistItem): string[] {
         return body.map((value) => String(value));
     }
 
-    return String(body ?? '').split('\n').map((row) => row.trim()).filter(Boolean);
+    return String(body ?? '')
+        .split('\n')
+        .map((row) => row.trim())
+        .filter(Boolean);
 }
 
 function weatherCondition(code: unknown): string {
@@ -855,7 +937,14 @@ function weatherBackgroundClass(item: PlaylistItem): string {
     return 'weather-cloudy';
 }
 
-function weatherData(item: PlaylistItem): { temperature: string; humidity: string; condition: string; wind: string | null; location: string; updatedAt: string } {
+function weatherData(item: PlaylistItem): {
+    temperature: string;
+    humidity: string;
+    condition: string;
+    wind: string | null;
+    location: string;
+    updatedAt: string;
+} {
     const content = item.content ?? {};
     const windSpeed = content.wind_speed;
 
@@ -863,17 +952,26 @@ function weatherData(item: PlaylistItem): { temperature: string; humidity: strin
         temperature: `${content.temperature ?? content.title ?? '-'} °C`,
         humidity: `${content.humidity ?? content.body ?? '-'}%`,
         condition: weatherCondition(content.weather_code),
-        wind: windSpeed === undefined || windSpeed === null || windSpeed === '' ? null : `${windSpeed} km/h`,
-        location: String(content.location ?? content.subtitle ?? 'Weather update'),
+        wind:
+            windSpeed === undefined || windSpeed === null || windSpeed === ''
+                ? null
+                : `${windSpeed} km/h`,
+        location: String(
+            content.location ?? content.subtitle ?? 'Weather update',
+        ),
         updatedAt: String(content.updated_at ?? ''),
     };
 }
 
 function youtubeEmbedUrl(url: string | null): string {
-    if (! url) return '';
-    const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([^?&/]+)/i);
+    if (!url) return '';
+    const match = url.match(
+        /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([^?&/]+)/i,
+    );
 
-    return match ? `https://www.youtube.com/embed/${match[1]}?autoplay=1&mute=1&controls=0&loop=1&playlist=${match[1]}` : url;
+    return match
+        ? `https://www.youtube.com/embed/${match[1]}?autoplay=1&mute=1&controls=0&loop=1&playlist=${match[1]}`
+        : url;
 }
 
 function isVideoUrl(url: string | null): boolean {
@@ -883,7 +981,11 @@ function isVideoUrl(url: string | null): boolean {
 function objectRows(item: PlaylistItem): Array<Record<string, unknown>> {
     const rows = item.content?.rows;
 
-    return Array.isArray(rows) ? rows.filter((row): row is Record<string, unknown> => Boolean(row && typeof row === 'object' && !Array.isArray(row))) : [];
+    return Array.isArray(rows)
+        ? rows.filter((row): row is Record<string, unknown> =>
+              Boolean(row && typeof row === 'object' && !Array.isArray(row)),
+          )
+        : [];
 }
 
 function tableColumns(item: PlaylistItem): string[] {
@@ -903,40 +1005,78 @@ function tableValues(item: PlaylistItem): Array<Array<string>> {
 
     const columns = tableColumns(item);
 
-    return rows.map((row) => Array.isArray(row) ? row.map((value) => String(value ?? '')) : columns.map((column) => String((row as Record<string, unknown>)[column] ?? '')));
+    return rows.map((row) =>
+        Array.isArray(row)
+            ? row.map((value) => String(value ?? ''))
+            : columns.map((column) =>
+                  String((row as Record<string, unknown>)[column] ?? ''),
+              ),
+    );
 }
 
 function menuItems(item: PlaylistItem): Array<Record<string, unknown>> {
     const items = item.content?.items;
 
-    return Array.isArray(items) ? items.filter((entry): entry is Record<string, unknown> => Boolean(entry && typeof entry === 'object' && !Array.isArray(entry))) : [];
+    return Array.isArray(items)
+        ? items.filter((entry): entry is Record<string, unknown> =>
+              Boolean(
+                  entry && typeof entry === 'object' && !Array.isArray(entry),
+              ),
+          )
+        : [];
 }
 
 function renderCustomTemplate(item: PlaylistItem): string {
     const html = item.template_definition?.html ?? '';
     const data = item.content ?? {};
-    const escaped = (value: unknown): string => String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[character] ?? character);
+    const escaped = (value: unknown): string =>
+        String(value ?? '').replace(
+            /[&<>"']/g,
+            (character) =>
+                ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#039;',
+                })[character] ?? character,
+        );
     const valueAtPath = (source: unknown, path: string): unknown => {
         if (path === 'this') return source;
 
-        return path.split('.').reduce<unknown>((value, segment) => (
-            value && typeof value === 'object' && segment in value
-                ? (value as Record<string, unknown>)[segment]
-                : undefined
-        ), source);
+        return path
+            .split('.')
+            .reduce<unknown>(
+                (value, segment) =>
+                    value && typeof value === 'object' && segment in value
+                        ? (value as Record<string, unknown>)[segment]
+                        : undefined,
+                source,
+            );
     };
-    const replaceFields = (markup: string, source: unknown): string => markup.replace(/{{\s*(?:this\.)?([\w.-]+)\s*}}/g, (_match, key: string) => escaped(valueAtPath(source, key)));
-    const renderedHtml = html.replace(/{{#each\s+([\w.-]+)}}([\s\S]*?){{\/each}}/g, (_match, path: string, block: string) => {
-        const rows = valueAtPath(data, path);
+    const replaceFields = (markup: string, source: unknown): string =>
+        markup.replace(
+            /{{\s*(?:this\.)?([\w.-]+)\s*}}/g,
+            (_match, key: string) => escaped(valueAtPath(source, key)),
+        );
+    const renderedHtml = html.replace(
+        /{{#each\s+([\w.-]+)}}([\s\S]*?){{\/each}}/g,
+        (_match, path: string, block: string) => {
+            const rows = valueAtPath(data, path);
 
-        return Array.isArray(rows) ? rows.map((row) => replaceFields(block, row)).join('') : '';
-    });
+            return Array.isArray(rows)
+                ? rows.map((row) => replaceFields(block, row)).join('')
+                : '';
+        },
+    );
 
     return `<style>${item.template_definition?.css ?? ''}</style>${renderedHtml}`
         .replace(/<script[\s\S]*?<\/script>/gi, '')
         .replace(/\son\w+\s*=\s*(['"]).*?\1/gi, '')
         .replace(/javascript:/gi, '')
-        .replace(/{{\s*([\w.-]+)\s*}}/g, (_match, key: string) => escaped(valueAtPath(data, key)));
+        .replace(/{{\s*([\w.-]+)\s*}}/g, (_match, key: string) =>
+            escaped(valueAtPath(data, key)),
+        );
 }
 
 function showNextItem(): void {
@@ -1035,9 +1175,7 @@ onBeforeUnmount(() => {
                     class="grid h-full w-full place-items-center"
                 >
                     <div class="text-center">
-                        <div class="text-xl font-semibold">
-                            Playlist kosong
-                        </div>
+                        <div class="text-xl font-semibold">Playlist kosong</div>
                         <div class="mt-2 text-sm text-zinc-400">
                             {{ manifest?.playlist.name }}
                         </div>
@@ -1047,121 +1185,622 @@ onBeforeUnmount(() => {
                 <template v-else>
                     <Transition :name="transitionName" mode="out-in">
                         <div :key="activeItem.id" class="absolute inset-0">
-                            <audio v-if="activeItem.audio?.url" :src="activeItem.audio.url" :loop="activeItem.audio.loop" autoplay class="hidden" @error="onMediaError" />
+                            <audio
+                                v-if="activeItem.audio?.url"
+                                :src="activeItem.audio.url"
+                                :loop="activeItem.audio.loop"
+                                autoplay
+                                class="hidden"
+                                @error="onMediaError"
+                            />
                             <div
                                 v-if="activeItem.template === 'custom'"
                                 class="h-full w-full overflow-hidden bg-zinc-950 text-white"
                             >
-                                <div v-html="renderCustomTemplate(activeItem)" />
+                                <div
+                                    v-html="renderCustomTemplate(activeItem)"
+                                />
                             </div>
                             <div
                                 v-else-if="activeItem.template === 'weather'"
                                 class="weather-panel relative flex h-full w-full flex-col justify-between overflow-hidden px-[8%] py-[7%] text-white"
                                 :class="weatherBackgroundClass(activeItem)"
                             >
-                                <svg class="weather-art" viewBox="0 0 1200 700" preserveAspectRatio="none" aria-hidden="true">
+                                <svg
+                                    class="weather-art"
+                                    viewBox="0 0 1200 700"
+                                    preserveAspectRatio="none"
+                                    aria-hidden="true"
+                                >
                                     <defs>
-                                        <linearGradient id="weather-sky-clear" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#38bdf8" /><stop offset="1" stop-color="#0f766e" /></linearGradient>
-                                        <linearGradient id="weather-sky-cloudy" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#64748b" /><stop offset="1" stop-color="#334155" /></linearGradient>
-                                        <linearGradient id="weather-sky-rain" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#315b83" /><stop offset="1" stop-color="#172554" /></linearGradient>
+                                        <linearGradient
+                                            id="weather-sky-clear"
+                                            x1="0"
+                                            y1="0"
+                                            x2="1"
+                                            y2="1"
+                                        >
+                                            <stop
+                                                offset="0"
+                                                stop-color="#38bdf8"
+                                            />
+                                            <stop
+                                                offset="1"
+                                                stop-color="#0f766e"
+                                            />
+                                        </linearGradient>
+                                        <linearGradient
+                                            id="weather-sky-cloudy"
+                                            x1="0"
+                                            y1="0"
+                                            x2="1"
+                                            y2="1"
+                                        >
+                                            <stop
+                                                offset="0"
+                                                stop-color="#64748b"
+                                            />
+                                            <stop
+                                                offset="1"
+                                                stop-color="#334155"
+                                            />
+                                        </linearGradient>
+                                        <linearGradient
+                                            id="weather-sky-rain"
+                                            x1="0"
+                                            y1="0"
+                                            x2="1"
+                                            y2="1"
+                                        >
+                                            <stop
+                                                offset="0"
+                                                stop-color="#315b83"
+                                            />
+                                            <stop
+                                                offset="1"
+                                                stop-color="#172554"
+                                            />
+                                        </linearGradient>
                                     </defs>
-                                    <rect width="1200" height="700" :fill="weatherBackgroundClass(activeItem) === 'weather-clear' ? 'url(#weather-sky-clear)' : weatherBackgroundClass(activeItem) === 'weather-cloudy' ? 'url(#weather-sky-cloudy)' : 'url(#weather-sky-rain)'">
-                                        <animate attributeName="opacity" values="0.92;1;0.92" dur="8s" repeatCount="indefinite" />
+                                    <rect
+                                        width="1200"
+                                        height="700"
+                                        :fill="
+                                            weatherBackgroundClass(
+                                                activeItem,
+                                            ) === 'weather-clear'
+                                                ? 'url(#weather-sky-clear)'
+                                                : weatherBackgroundClass(
+                                                        activeItem,
+                                                    ) === 'weather-cloudy'
+                                                  ? 'url(#weather-sky-cloudy)'
+                                                  : 'url(#weather-sky-rain)'
+                                        "
+                                    >
+                                        <animate
+                                            attributeName="opacity"
+                                            values="0.92;1;0.92"
+                                            dur="8s"
+                                            repeatCount="indefinite"
+                                        />
                                     </rect>
-                                    <g v-if="weatherBackgroundClass(activeItem) === 'weather-clear'" class="weather-svg-sun">
-                                        <circle cx="970" cy="145" r="76" fill="#fde68a">
-                                            <animate attributeName="r" values="76;84;76" dur="5s" repeatCount="indefinite" />
-                                            <animate attributeName="opacity" values="0.86;1;0.86" dur="5s" repeatCount="indefinite" />
+                                    <g
+                                        v-if="
+                                            weatherBackgroundClass(
+                                                activeItem,
+                                            ) === 'weather-clear'
+                                        "
+                                        class="weather-svg-sun"
+                                    >
+                                        <circle
+                                            cx="970"
+                                            cy="145"
+                                            r="76"
+                                            fill="#fde68a"
+                                        >
+                                            <animate
+                                                attributeName="r"
+                                                values="76;84;76"
+                                                dur="5s"
+                                                repeatCount="indefinite"
+                                            />
+                                            <animate
+                                                attributeName="opacity"
+                                                values="0.86;1;0.86"
+                                                dur="5s"
+                                                repeatCount="indefinite"
+                                            />
                                         </circle>
-                                        <circle cx="970" cy="145" r="112" fill="none" stroke="#fef3c7" stroke-width="5" stroke-dasharray="3 26" opacity="0.8">
-                                            <animateTransform attributeName="transform" type="rotate" from="0 970 145" to="360 970 145" dur="24s" repeatCount="indefinite" />
-                                            <animate attributeName="r" values="106;120;106" dur="5s" repeatCount="indefinite" />
+                                        <circle
+                                            cx="970"
+                                            cy="145"
+                                            r="112"
+                                            fill="none"
+                                            stroke="#fef3c7"
+                                            stroke-width="5"
+                                            stroke-dasharray="3 26"
+                                            opacity="0.8"
+                                        >
+                                            <animateTransform
+                                                attributeName="transform"
+                                                type="rotate"
+                                                from="0 970 145"
+                                                to="360 970 145"
+                                                dur="24s"
+                                                repeatCount="indefinite"
+                                            />
+                                            <animate
+                                                attributeName="r"
+                                                values="106;120;106"
+                                                dur="5s"
+                                                repeatCount="indefinite"
+                                            />
                                         </circle>
                                     </g>
-                                    <g v-if="['weather-cloudy', 'weather-rain', 'weather-storm'].includes(weatherBackgroundClass(activeItem))" class="weather-svg-clouds" fill="#e2e8f0">
-                                        <path d="M80 250c0-48 39-87 87-87 20-55 72-93 134-93 73 0 133 52 146 121 10-3 20-5 31-5 54 0 98 44 98 98H80c0-12 0-23 0-34Z" opacity="0.5" />
-                                        <path d="M710 490c0-37 30-67 67-67 16-42 55-70 102-70 56 0 102 40 112 92 8-2 16-4 24-4 41 0 75 34 75 75H710v-26Z" opacity="0.24" />
+                                    <g
+                                        v-if="
+                                            [
+                                                'weather-cloudy',
+                                                'weather-rain',
+                                                'weather-storm',
+                                            ].includes(
+                                                weatherBackgroundClass(
+                                                    activeItem,
+                                                ),
+                                            )
+                                        "
+                                        class="weather-svg-clouds"
+                                        fill="#e2e8f0"
+                                    >
+                                        <path
+                                            d="M80 250c0-48 39-87 87-87 20-55 72-93 134-93 73 0 133 52 146 121 10-3 20-5 31-5 54 0 98 44 98 98H80c0-12 0-23 0-34Z"
+                                            opacity="0.5"
+                                        />
+                                        <path
+                                            d="M710 490c0-37 30-67 67-67 16-42 55-70 102-70 56 0 102 40 112 92 8-2 16-4 24-4 41 0 75 34 75 75H710v-26Z"
+                                            opacity="0.24"
+                                        />
                                     </g>
-                                    <g v-if="['weather-rain', 'weather-storm'].includes(weatherBackgroundClass(activeItem))" class="weather-svg-rain" stroke="#bae6fd" stroke-width="5" stroke-linecap="round" opacity="0.5">
-                                        <path d="M190 390l-25 70M300 390l-25 70M410 390l-25 70M520 390l-25 70M630 390l-25 70M740 390l-25 70M850 390l-25 70M960 390l-25 70" />
-                                        <path d="M245 510l-25 70M355 510l-25 70M465 510l-25 70M575 510l-25 70M685 510l-25 70M795 510l-25 70M905 510l-25 70" />
+                                    <g
+                                        v-if="
+                                            [
+                                                'weather-rain',
+                                                'weather-storm',
+                                            ].includes(
+                                                weatherBackgroundClass(
+                                                    activeItem,
+                                                ),
+                                            )
+                                        "
+                                        class="weather-svg-rain"
+                                        stroke="#bae6fd"
+                                        stroke-width="5"
+                                        stroke-linecap="round"
+                                        opacity="0.5"
+                                    >
+                                        <path
+                                            d="M190 390l-25 70M300 390l-25 70M410 390l-25 70M520 390l-25 70M630 390l-25 70M740 390l-25 70M850 390l-25 70M960 390l-25 70"
+                                        />
+                                        <path
+                                            d="M245 510l-25 70M355 510l-25 70M465 510l-25 70M575 510l-25 70M685 510l-25 70M795 510l-25 70M905 510l-25 70"
+                                        />
                                     </g>
                                 </svg>
-                                <div class="flex items-start justify-between gap-8">
+                                <div
+                                    class="flex items-start justify-between gap-8"
+                                >
                                     <div>
-                                        <div class="text-sm font-medium uppercase tracking-[0.25em] text-cyan-300">Live weather</div>
-                                        <div class="mt-3 text-4xl font-semibold tracking-tight">{{ weatherData(activeItem).location }}</div>
+                                        <div
+                                            class="text-sm font-medium tracking-[0.25em] text-cyan-300 uppercase"
+                                        >
+                                            Live weather
+                                        </div>
+                                        <div
+                                            class="mt-3 text-4xl font-semibold tracking-tight"
+                                        >
+                                            {{
+                                                weatherData(activeItem).location
+                                            }}
+                                        </div>
                                     </div>
-                                    <div class="text-right text-sm text-slate-400">{{ weatherData(activeItem).updatedAt }}</div>
+                                    <div
+                                        class="text-right text-sm text-slate-400"
+                                    >
+                                        {{ weatherData(activeItem).updatedAt }}
+                                    </div>
                                 </div>
-                                <div class="grid gap-10 md:grid-cols-[1.2fr_1fr] md:items-end">
+                                <div
+                                    class="grid gap-10 md:grid-cols-[1.2fr_1fr] md:items-end"
+                                >
                                     <div>
-                                        <div class="text-[clamp(5rem,14vw,12rem)] font-semibold leading-none tracking-[-0.04em]">{{ weatherData(activeItem).temperature }}</div>
-                                        <div class="mt-5 text-3xl font-medium text-slate-200">{{ weatherData(activeItem).condition }}</div>
+                                        <div
+                                            class="text-[clamp(5rem,14vw,12rem)] leading-none font-semibold tracking-[-0.04em]"
+                                        >
+                                            {{
+                                                weatherData(activeItem)
+                                                    .temperature
+                                            }}
+                                        </div>
+                                        <div
+                                            class="mt-5 text-3xl font-medium text-slate-200"
+                                        >
+                                            {{
+                                                weatherData(activeItem)
+                                                    .condition
+                                            }}
+                                        </div>
                                     </div>
                                     <div class="grid grid-cols-2 gap-3 text-lg">
-                                        <div class="border-l-2 border-cyan-400/70 pl-4"><div class="text-sm text-slate-400">Kelembapan</div><div class="mt-1 text-3xl font-semibold">{{ weatherData(activeItem).humidity }}</div></div>
-                                        <div v-if="weatherData(activeItem).wind" class="border-l-2 border-cyan-400/70 pl-4"><div class="text-sm text-slate-400">Angin</div><div class="mt-1 text-3xl font-semibold">{{ weatherData(activeItem).wind }}</div></div>
+                                        <div
+                                            class="border-l-2 border-cyan-400/70 pl-4"
+                                        >
+                                            <div class="text-sm text-slate-400">
+                                                Kelembapan
+                                            </div>
+                                            <div
+                                                class="mt-1 text-3xl font-semibold"
+                                            >
+                                                {{
+                                                    weatherData(activeItem)
+                                                        .humidity
+                                                }}
+                                            </div>
+                                        </div>
+                                        <div
+                                            v-if="weatherData(activeItem).wind"
+                                            class="border-l-2 border-cyan-400/70 pl-4"
+                                        >
+                                            <div class="text-sm text-slate-400">
+                                                Angin
+                                            </div>
+                                            <div
+                                                class="mt-1 text-3xl font-semibold"
+                                            >
+                                                {{
+                                                    weatherData(activeItem).wind
+                                                }}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                             <div
-                                v-else-if="activeItem.template === 'flight-board'"
+                                v-else-if="
+                                    activeItem.template === 'flight-board'
+                                "
                                 class="flex h-full w-full flex-col bg-slate-950 px-[5%] py-[4%] text-white"
                             >
-                                <div class="flex items-end justify-between border-b border-cyan-400/30 pb-5">
-                                    <div><div class="text-sm font-medium uppercase tracking-[0.25em] text-cyan-300">Flight information</div><div class="mt-2 text-5xl font-semibold">{{ templateTitle(activeItem) }}</div></div>
-                                    <div class="text-right text-sm text-slate-400">{{ activeItem.content?.subtitle }}</div>
+                                <div
+                                    class="flex items-end justify-between border-b border-cyan-400/30 pb-5"
+                                >
+                                    <div>
+                                        <div
+                                            class="text-sm font-medium tracking-[0.25em] text-cyan-300 uppercase"
+                                        >
+                                            Flight information
+                                        </div>
+                                        <div
+                                            class="mt-2 text-5xl font-semibold"
+                                        >
+                                            {{ templateTitle(activeItem) }}
+                                        </div>
+                                    </div>
+                                    <div
+                                        class="text-right text-sm text-slate-400"
+                                    >
+                                        {{ activeItem.content?.subtitle }}
+                                    </div>
                                 </div>
-                                <div class="mt-6 grid grid-cols-[1.1fr_1.5fr_0.8fr_0.7fr_1fr] gap-3 border-b border-white/10 px-5 pb-3 text-sm font-medium uppercase tracking-wider text-slate-400"><span>Flight</span><span>Destination</span><span>Time</span><span>Gate</span><span>Status</span></div>
-                                <div class="mt-2 space-y-2 overflow-hidden text-2xl"><div v-for="(row, rowIndex) in objectRows(activeItem)" :key="rowIndex" class="grid grid-cols-[1.1fr_1.5fr_0.8fr_0.7fr_1fr] gap-3 rounded-md border border-white/10 bg-white/[0.06] px-5 py-4"><span class="font-semibold text-cyan-200">{{ row.flight ?? row.number ?? '-' }}</span><span>{{ row.destination ?? '-' }}</span><span>{{ row.time ?? '-' }}</span><span>{{ row.gate ?? '-' }}</span><span class="text-emerald-300">{{ row.status ?? '-' }}</span></div></div>
+                                <div
+                                    class="mt-6 grid grid-cols-[1.1fr_1.5fr_0.8fr_0.7fr_1fr] gap-3 border-b border-white/10 px-5 pb-3 text-sm font-medium tracking-wider text-slate-400 uppercase"
+                                >
+                                    <span>Flight</span><span>Destination</span
+                                    ><span>Time</span><span>Gate</span
+                                    ><span>Status</span>
+                                </div>
+                                <div
+                                    class="mt-2 space-y-2 overflow-hidden text-2xl"
+                                >
+                                    <div
+                                        v-for="(row, rowIndex) in objectRows(
+                                            activeItem,
+                                        )"
+                                        :key="rowIndex"
+                                        class="grid grid-cols-[1.1fr_1.5fr_0.8fr_0.7fr_1fr] gap-3 rounded-md border border-white/10 bg-white/[0.06] px-5 py-4"
+                                    >
+                                        <span
+                                            class="font-semibold text-cyan-200"
+                                            >{{
+                                                row.flight ?? row.number ?? '-'
+                                            }}</span
+                                        ><span>{{
+                                            row.destination ?? '-'
+                                        }}</span
+                                        ><span>{{ row.time ?? '-' }}</span
+                                        ><span>{{ row.gate ?? '-' }}</span
+                                        ><span class="text-emerald-300">{{
+                                            row.status ?? '-'
+                                        }}</span>
+                                    </div>
+                                </div>
                             </div>
                             <div
                                 v-else-if="activeItem.template === 'data-table'"
                                 class="flex h-full w-full flex-col bg-zinc-950 px-[5%] py-[5%] text-white"
                             >
-                                <div class="border-b border-white/15 pb-5"><div class="text-sm font-medium uppercase tracking-[0.25em] text-cyan-300">Live data</div><div class="mt-2 text-5xl font-semibold">{{ templateTitle(activeItem) }}</div><div class="mt-2 text-xl text-slate-400">{{ activeItem.content?.subtitle }}</div></div>
-                                <div class="mt-6 overflow-hidden rounded-md border border-white/15"><div class="grid gap-3 bg-white/10 px-5 py-4 text-xl font-semibold" :style="{ gridTemplateColumns: `repeat(${Math.max(tableColumns(activeItem).length, 1)}, minmax(0, 1fr))` }"><span v-for="column in tableColumns(activeItem)" :key="column">{{ column }}</span></div><div v-for="(row, rowIndex) in tableValues(activeItem)" :key="rowIndex" class="grid gap-3 border-t border-white/10 px-5 py-4 text-xl" :style="{ gridTemplateColumns: `repeat(${Math.max(tableColumns(activeItem).length, 1)}, minmax(0, 1fr))` }"><span v-for="(value, valueIndex) in row" :key="valueIndex">{{ value }}</span></div></div>
+                                <div class="border-b border-white/15 pb-5">
+                                    <div
+                                        class="text-sm font-medium tracking-[0.25em] text-cyan-300 uppercase"
+                                    >
+                                        Live data
+                                    </div>
+                                    <div class="mt-2 text-5xl font-semibold">
+                                        {{ templateTitle(activeItem) }}
+                                    </div>
+                                    <div class="mt-2 text-xl text-slate-400">
+                                        {{ activeItem.content?.subtitle }}
+                                    </div>
+                                </div>
+                                <div
+                                    class="mt-6 overflow-hidden rounded-md border border-white/15"
+                                >
+                                    <div
+                                        class="grid gap-3 bg-white/10 px-5 py-4 text-xl font-semibold"
+                                        :style="{
+                                            gridTemplateColumns: `repeat(${Math.max(tableColumns(activeItem).length, 1)}, minmax(0, 1fr))`,
+                                        }"
+                                    >
+                                        <span
+                                            v-for="column in tableColumns(
+                                                activeItem,
+                                            )"
+                                            :key="column"
+                                            >{{ column }}</span
+                                        >
+                                    </div>
+                                    <div
+                                        v-for="(row, rowIndex) in tableValues(
+                                            activeItem,
+                                        )"
+                                        :key="rowIndex"
+                                        class="grid gap-3 border-t border-white/10 px-5 py-4 text-xl"
+                                        :style="{
+                                            gridTemplateColumns: `repeat(${Math.max(tableColumns(activeItem).length, 1)}, minmax(0, 1fr))`,
+                                        }"
+                                    >
+                                        <span
+                                            v-for="(value, valueIndex) in row"
+                                            :key="valueIndex"
+                                            >{{ value }}</span
+                                        >
+                                    </div>
+                                </div>
                             </div>
                             <div
                                 v-else-if="activeItem.template === 'menu'"
                                 class="flex h-full w-full flex-col bg-stone-950 px-[6%] py-[5%] text-white"
                             >
-                                <div class="text-center"><div class="text-sm font-medium uppercase tracking-[0.3em] text-amber-300">Menu</div><div class="mt-2 text-5xl font-semibold">{{ templateTitle(activeItem) }}</div><div class="mt-2 text-xl text-stone-300">{{ activeItem.content?.subtitle }}</div></div>
-                                <div class="mt-8 grid flex-1 grid-cols-2 gap-5 overflow-hidden xl:grid-cols-3"><div v-for="(menuItem, menuIndex) in menuItems(activeItem)" :key="menuIndex" class="overflow-hidden rounded-md border border-white/10 bg-white/[0.08]"><img v-if="menuItem.image" :src="String(menuItem.image)" :alt="String(menuItem.name ?? '')" class="h-32 w-full object-cover" /><div class="p-5"><div class="flex items-start justify-between gap-3"><div class="text-2xl font-semibold">{{ menuItem.name ?? '-' }}</div><div class="shrink-0 text-xl font-semibold text-amber-300">{{ menuItem.price ?? '' }}</div></div><div class="mt-2 text-base text-stone-300">{{ menuItem.description ?? '' }}</div></div></div></div>
+                                <div class="text-center">
+                                    <div
+                                        class="text-sm font-medium tracking-[0.3em] text-amber-300 uppercase"
+                                    >
+                                        Menu
+                                    </div>
+                                    <div class="mt-2 text-5xl font-semibold">
+                                        {{ templateTitle(activeItem) }}
+                                    </div>
+                                    <div class="mt-2 text-xl text-stone-300">
+                                        {{ activeItem.content?.subtitle }}
+                                    </div>
+                                </div>
+                                <div
+                                    class="mt-8 grid flex-1 grid-cols-2 gap-5 overflow-hidden xl:grid-cols-3"
+                                >
+                                    <div
+                                        v-for="(
+                                            menuItem, menuIndex
+                                        ) in menuItems(activeItem)"
+                                        :key="menuIndex"
+                                        class="overflow-hidden rounded-md border border-white/10 bg-white/[0.08]"
+                                    >
+                                        <img
+                                            v-if="menuItem.image"
+                                            :src="String(menuItem.image)"
+                                            :alt="String(menuItem.name ?? '')"
+                                            class="h-32 w-full object-cover"
+                                        />
+                                        <div class="p-5">
+                                            <div
+                                                class="flex items-start justify-between gap-3"
+                                            >
+                                                <div
+                                                    class="text-2xl font-semibold"
+                                                >
+                                                    {{ menuItem.name ?? '-' }}
+                                                </div>
+                                                <div
+                                                    class="shrink-0 text-xl font-semibold text-amber-300"
+                                                >
+                                                    {{ menuItem.price ?? '' }}
+                                                </div>
+                                            </div>
+                                            <div
+                                                class="mt-2 text-base text-stone-300"
+                                            >
+                                                {{ menuItem.description ?? '' }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                             <div
-                                v-else-if="activeItem.template === 'split-screen' && activeItem.split_screen"
+                                v-else-if="
+                                    activeItem.template === 'split-screen' &&
+                                    activeItem.split_screen
+                                "
                                 class="flex h-full w-full overflow-hidden bg-zinc-950"
                             >
-                                <div class="relative h-full overflow-hidden bg-zinc-900" :style="{ width: `${activeItem.split_screen.left_width}%` }">
-                                    <img v-if="activeItem.split_screen.left?.url" :src="activeItem.split_screen.left.url" :alt="activeItem.split_screen.left.name" class="h-full w-full object-cover" @error="onMediaError" />
-                                    <div v-else class="grid h-full place-items-center text-sm text-zinc-400">Image unavailable</div>
+                                <div
+                                    class="relative h-full overflow-hidden bg-zinc-900"
+                                    :style="{
+                                        width: `${activeItem.split_screen.left_width}%`,
+                                    }"
+                                >
+                                    <img
+                                        v-if="activeItem.split_screen.left?.url"
+                                        :src="activeItem.split_screen.left.url"
+                                        :alt="activeItem.split_screen.left.name"
+                                        class="h-full w-full object-cover"
+                                        @error="onMediaError"
+                                    />
+                                    <div
+                                        v-else
+                                        class="grid h-full place-items-center text-sm text-zinc-400"
+                                    >
+                                        Image unavailable
+                                    </div>
                                 </div>
-                                <div class="relative h-full overflow-hidden bg-black" :style="{ width: `${activeItem.split_screen.right_width}%` }">
-                                    <iframe v-if="activeItem.split_screen.right_source === 'youtube'" :src="youtubeEmbedUrl(activeItem.split_screen.right_url)" class="h-full w-full border-0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen />
-                                    <video v-else-if="activeItem.split_screen.right_source === 'media' && activeItem.split_screen.right?.type === 'video'" :src="activeItem.split_screen.right.url ?? undefined" class="h-full w-full object-cover" autoplay muted loop playsinline @error="onMediaError" />
-                                    <iframe v-else-if="activeItem.split_screen.right_source === 'media' && activeItem.split_screen.right?.type === 'web'" :src="activeItem.split_screen.right.url ?? undefined" class="h-full w-full border-0" allow="autoplay; fullscreen" />
-                                    <video v-else-if="activeItem.split_screen.right_source === 'url' && isVideoUrl(activeItem.split_screen.right_url)" :src="activeItem.split_screen.right_url ?? undefined" class="h-full w-full object-cover" autoplay muted loop playsinline @error="onMediaError" />
-                                    <iframe v-else-if="activeItem.split_screen.right_source === 'url'" :src="activeItem.split_screen.right_url ?? undefined" class="h-full w-full border-0" allow="autoplay; fullscreen" />
-                                    <div v-else class="grid h-full place-items-center text-sm text-zinc-400">Video unavailable</div>
+                                <div
+                                    class="relative h-full overflow-hidden bg-black"
+                                    :style="{
+                                        width: `${activeItem.split_screen.right_width}%`,
+                                    }"
+                                >
+                                    <iframe
+                                        v-if="
+                                            activeItem.split_screen
+                                                .right_source === 'youtube'
+                                        "
+                                        :src="
+                                            youtubeEmbedUrl(
+                                                activeItem.split_screen
+                                                    .right_url,
+                                            )
+                                        "
+                                        class="h-full w-full border-0"
+                                        allow="
+                                            autoplay;
+                                            fullscreen;
+                                            picture-in-picture;
+                                        "
+                                        allowfullscreen
+                                    />
+                                    <video
+                                        v-else-if="
+                                            activeItem.split_screen
+                                                .right_source === 'media' &&
+                                            (activeItem.split_screen.right
+                                                ?.type === 'video' ||
+                                                activeItem.split_screen.right
+                                                    ?.type === 'video_url')
+                                        "
+                                        :src="
+                                            activeItem.split_screen.right.url ??
+                                            undefined
+                                        "
+                                        class="h-full w-full object-cover"
+                                        autoplay
+                                        muted
+                                        loop
+                                        playsinline
+                                        @error="onMediaError"
+                                    />
+                                    <iframe
+                                        v-else-if="
+                                            activeItem.split_screen
+                                                .right_source === 'media' &&
+                                            activeItem.split_screen.right
+                                                ?.type === 'web'
+                                        "
+                                        :src="
+                                            activeItem.split_screen.right.url ??
+                                            undefined
+                                        "
+                                        class="h-full w-full border-0"
+                                        allow="autoplay; fullscreen"
+                                    />
+                                    <video
+                                        v-else-if="
+                                            activeItem.split_screen
+                                                .right_source === 'url' &&
+                                            isVideoUrl(
+                                                activeItem.split_screen
+                                                    .right_url,
+                                            )
+                                        "
+                                        :src="
+                                            activeItem.split_screen.right_url ??
+                                            undefined
+                                        "
+                                        class="h-full w-full object-cover"
+                                        autoplay
+                                        muted
+                                        loop
+                                        playsinline
+                                        @error="onMediaError"
+                                    />
+                                    <iframe
+                                        v-else-if="
+                                            activeItem.split_screen
+                                                .right_source === 'url'
+                                        "
+                                        :src="
+                                            activeItem.split_screen.right_url ??
+                                            undefined
+                                        "
+                                        class="h-full w-full border-0"
+                                        allow="autoplay; fullscreen"
+                                    />
+                                    <div
+                                        v-else
+                                        class="grid h-full place-items-center text-sm text-zinc-400"
+                                    >
+                                        Video unavailable
+                                    </div>
                                 </div>
                             </div>
                             <div
-                                v-else-if="(activeItem.template ?? 'media') !== 'media'"
+                                v-else-if="
+                                    (activeItem.template ?? 'media') !== 'media'
+                                "
                                 class="flex h-full w-full flex-col justify-center bg-zinc-950 px-[8%] py-[6%] text-white"
                             >
-                                <div class="text-5xl font-bold tracking-tight">{{ templateTitle(activeItem) }}</div>
-                                <div v-if="activeItem.content?.subtitle" class="mt-3 text-2xl text-zinc-300">{{ activeItem.content.subtitle }}</div>
-                                <div v-if="activeItem.template === 'announcement'" class="mt-10 max-w-5xl whitespace-pre-line text-4xl leading-tight">
+                                <div class="text-5xl font-bold tracking-tight">
+                                    {{ templateTitle(activeItem) }}
+                                </div>
+                                <div
+                                    v-if="activeItem.content?.subtitle"
+                                    class="mt-3 text-2xl text-zinc-300"
+                                >
+                                    {{ activeItem.content.subtitle }}
+                                </div>
+                                <div
+                                    v-if="
+                                        activeItem.template === 'announcement'
+                                    "
+                                    class="mt-10 max-w-5xl text-4xl leading-tight whitespace-pre-line"
+                                >
                                     {{ activeItem.content?.body }}
                                 </div>
                                 <div v-else class="mt-10 grid gap-3 text-2xl">
-                                    <div v-for="(row, rowIndex) in templateRows(activeItem)" :key="rowIndex" class="rounded-lg border border-white/15 bg-white/10 px-5 py-4">{{ row }}</div>
+                                    <div
+                                        v-for="(row, rowIndex) in templateRows(
+                                            activeItem,
+                                        )"
+                                        :key="rowIndex"
+                                        class="rounded-lg border border-white/15 bg-white/10 px-5 py-4"
+                                    >
+                                        {{ row }}
+                                    </div>
                                 </div>
                             </div>
                             <img
-                                v-else-if="activeItem.media?.type === 'image' && activeItem.media.url"
+                                v-else-if="
+                                    (activeItem.media?.type === 'image' ||
+                                        activeItem.media?.type ===
+                                            'image_url') &&
+                                    activeItem.media.url
+                                "
                                 :src="activeItem.media.url"
                                 :alt="activeItem.media.name"
                                 class="absolute"
@@ -1171,7 +1810,12 @@ onBeforeUnmount(() => {
                             />
 
                             <video
-                                v-else-if="activeItem.media?.type === 'video' && activeItem.media.url"
+                                v-else-if="
+                                    (activeItem.media?.type === 'video' ||
+                                        activeItem.media?.type ===
+                                            'video_url') &&
+                                    activeItem.media.url
+                                "
                                 :src="activeItem.media.url"
                                 class="absolute"
                                 :class="mediaFitClass"
@@ -1196,7 +1840,9 @@ onBeforeUnmount(() => {
                         v-for="overlay in tickerOverlays"
                         :key="`ticker-${overlay.text}`"
                         class="pointer-events-none absolute right-0 left-0 z-20 overflow-hidden px-4 py-3 text-lg font-medium"
-                        :class="overlay.position === 'top' ? 'top-0' : 'bottom-0'"
+                        :class="
+                            overlay.position === 'top' ? 'top-0' : 'bottom-0'
+                        "
                         :style="tickerStyle(overlay)"
                     >
                         <div
@@ -1212,29 +1858,64 @@ onBeforeUnmount(() => {
                         :key="`clock-${overlay.id}`"
                         class="pointer-events-none absolute z-20 rounded-md px-3 py-2 text-xl font-semibold tabular-nums"
                         :class="clockPositionClass(overlay.config.position)"
-                        :style="{ ...tickerStyle(overlay.config), ...overlayOffsetStyle(overlay.config) }"
+                        :style="{
+                            ...tickerStyle(overlay.config),
+                            ...overlayOffsetStyle(overlay.config),
+                        }"
                     >
-                        {{ currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: overlay.config.format === '12h' }) }}
+                        {{
+                            currentTime.toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit',
+                                hour12: overlay.config.format === '12h',
+                            })
+                        }}
                     </div>
 
                     <div
                         v-for="overlay in weatherOverlays"
                         :key="`weather-${overlay.id}`"
                         class="pointer-events-none absolute z-30 min-w-56 rounded-lg border border-white/15 bg-slate-950/85 px-4 py-3 text-white shadow-xl backdrop-blur-sm"
-                        :class="weatherOverlayPositionClass(overlay.config.position)"
-                        :style="{ ...tickerStyle(overlay.config), ...overlayOffsetStyle(overlay.config) }"
+                        :class="
+                            weatherOverlayPositionClass(overlay.config.position)
+                        "
+                        :style="{
+                            ...tickerStyle(overlay.config),
+                            ...overlayOffsetStyle(overlay.config),
+                        }"
                     >
                         <div class="flex items-center justify-between gap-5">
                             <div>
-                                <div class="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-300">Weather</div>
-                                <div class="mt-1 text-sm font-medium text-white/75">{{ weatherOverlayData(overlay).location }}</div>
+                                <div
+                                    class="text-[10px] font-semibold tracking-[0.2em] text-cyan-300 uppercase"
+                                >
+                                    Weather
+                                </div>
+                                <div
+                                    class="mt-1 text-sm font-medium text-white/75"
+                                >
+                                    {{ weatherOverlayData(overlay).location }}
+                                </div>
                             </div>
-                            <div class="text-3xl font-semibold leading-none">{{ weatherOverlayData(overlay).temperature }}</div>
+                            <div class="text-3xl leading-none font-semibold">
+                                {{ weatherOverlayData(overlay).temperature }}
+                            </div>
                         </div>
-                        <div class="mt-3 flex items-center gap-3 border-t border-white/10 pt-2 text-xs text-white/70">
-                            <span>{{ weatherOverlayData(overlay).condition }}</span>
-                            <span>Humidity {{ weatherOverlayData(overlay).humidity }}</span>
-                            <span v-if="weatherOverlayData(overlay).wind">Wind {{ weatherOverlayData(overlay).wind }}</span>
+                        <div
+                            class="mt-3 flex items-center gap-3 border-t border-white/10 pt-2 text-xs text-white/70"
+                        >
+                            <span>{{
+                                weatherOverlayData(overlay).condition
+                            }}</span>
+                            <span
+                                >Humidity
+                                {{ weatherOverlayData(overlay).humidity }}</span
+                            >
+                            <span v-if="weatherOverlayData(overlay).wind"
+                                >Wind
+                                {{ weatherOverlayData(overlay).wind }}</span
+                            >
                         </div>
                     </div>
 
@@ -1345,7 +2026,9 @@ onBeforeUnmount(() => {
 .slide-down-leave-active,
 .zoom-enter-active,
 .zoom-leave-active {
-    transition: transform 700ms ease, opacity 700ms ease;
+    transition:
+        transform 700ms ease,
+        opacity 700ms ease;
 }
 
 .slide-left-enter-from {
@@ -1421,7 +2104,12 @@ onBeforeUnmount(() => {
     position: absolute;
     inset: 0;
     z-index: -1;
-    background: linear-gradient(135deg, rgb(255 255 255 / 10%), transparent 48%, rgb(15 23 42 / 28%));
+    background: linear-gradient(
+        135deg,
+        rgb(255 255 255 / 10%),
+        transparent 48%,
+        rgb(15 23 42 / 28%)
+    );
     content: '';
 }
 
@@ -1459,10 +2147,14 @@ onBeforeUnmount(() => {
 }
 
 @keyframes weather-cloud-drift {
-    to { transform: translateX(24px); }
+    to {
+        transform: translateX(24px);
+    }
 }
 
 @keyframes weather-rain-fall {
-    to { transform: translateY(24px); }
+    to {
+        transform: translateY(24px);
+    }
 }
 </style>

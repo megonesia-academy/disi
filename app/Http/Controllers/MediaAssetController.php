@@ -2,7 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\InsufficientTokensException;
+use App\Exceptions\SubscriptionInactiveException;
+use App\Models\FeaturePrice;
 use App\Models\MediaAsset;
+use App\Models\TokenTransaction;
+use App\Services\TenantBilling;
 use App\Support\ActivityLogger;
 use App\Support\CurrentTenant;
 use Illuminate\Http\RedirectResponse;
@@ -17,6 +22,7 @@ class MediaAssetController extends Controller
     public function __construct(
         private readonly CurrentTenant $currentTenant,
         private readonly ActivityLogger $activityLogger,
+        private readonly TenantBilling $billing,
     ) {}
 
     /**
@@ -50,12 +56,9 @@ class MediaAssetController extends Controller
                     'height' => $asset->height,
                     'created_at' => $asset->created_at?->diffForHumans(),
                 ]),
-            'types' => [
-                MediaAsset::TYPE_IMAGE,
-                MediaAsset::TYPE_VIDEO,
-                MediaAsset::TYPE_AUDIO,
-                MediaAsset::TYPE_WEB,
-            ],
+            'types' => MediaAsset::TYPES,
+            'uploadCost' => $this->uploadCost(),
+            'balance' => $tenant->token_balance,
         ]);
     }
 
@@ -69,7 +72,7 @@ class MediaAssetController extends Controller
         $validated = $this->validated($request);
         $type = $validated['type'];
 
-        if ($type === MediaAsset::TYPE_WEB) {
+        if ($this->typeUsesExternalUrl($type)) {
             $mediaAsset = MediaAsset::query()->create([
                 'tenant_id' => $tenant->id,
                 'name' => $validated['name'],
@@ -94,7 +97,35 @@ class MediaAssetController extends Controller
         $file = $request->file('file');
         abort_unless($file, 422);
 
+        $uploadCost = $this->uploadCost();
+
+        if ($uploadCost > 0) {
+            try {
+                $this->billing->assertCanUsePaidFeatures($tenant);
+            } catch (SubscriptionInactiveException $exception) {
+                return back()->withErrors(['billing' => $exception->getMessage()]);
+            }
+        }
+
         $path = $file->store("tenants/{$tenant->id}/media", 'public');
+
+        if ($uploadCost > 0) {
+            try {
+                $this->billing->debit(
+                    $tenant,
+                    $uploadCost,
+                    TokenTransaction::TYPE_PURCHASE,
+                    "Upload media {$validated['name']}",
+                    'media_upload',
+                    ['type' => $type],
+                    $request->user(),
+                );
+            } catch (InsufficientTokensException $exception) {
+                Storage::disk('public')->delete($path);
+
+                return back()->withErrors(['billing' => $exception->getMessage()]);
+            }
+        }
         [$width, $height] = $type === MediaAsset::TYPE_IMAGE
             ? $this->imageDimensions($file->getRealPath())
             : [null, null];
@@ -134,10 +165,22 @@ class MediaAssetController extends Controller
         $this->currentTenant->authorizeModel($tenant, $mediaAsset);
         $this->currentTenant->authorizeCanManage($request, $tenant);
 
-        $validated = $request->validate([
+        $rules = [
             'name' => ['required', 'string', 'max:255'],
             'duration_seconds' => ['nullable', 'integer', 'min:1', 'max:86400'],
-        ]);
+        ];
+
+        if ($mediaAsset->usesExternalUrl()) {
+            $rules['url'] = ['sometimes', 'required', 'url', 'max:2048'];
+        }
+
+        $validated = $request->validate($rules);
+        $url = $validated['url'] ?? null;
+        unset($validated['url']);
+
+        if (is_string($url) && $url !== '') {
+            $validated['path'] = $url;
+        }
 
         $mediaAsset->update($validated);
 
@@ -167,7 +210,7 @@ class MediaAssetController extends Controller
 
         $this->activityLogger->log($request, $tenant, 'media.deleted', $mediaAsset, $properties);
 
-        if ($mediaAsset->type !== MediaAsset::TYPE_WEB) {
+        if (! $mediaAsset->usesExternalUrl()) {
             Storage::disk($mediaAsset->disk)->delete($mediaAsset->path);
         }
 
@@ -181,13 +224,28 @@ class MediaAssetController extends Controller
      */
     private function validated(Request $request): array
     {
+        $externalTypes = implode(',', MediaAsset::EXTERNAL_URL_TYPES);
+
         return $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'type' => ['required', Rule::in([MediaAsset::TYPE_IMAGE, MediaAsset::TYPE_VIDEO, MediaAsset::TYPE_AUDIO, MediaAsset::TYPE_WEB])],
-            'file' => ['nullable', 'file', 'max:102400', 'required_unless:type,'.MediaAsset::TYPE_WEB],
-            'url' => ['nullable', 'url', 'max:2048', 'required_if:type,'.MediaAsset::TYPE_WEB],
+            'type' => ['required', Rule::in(MediaAsset::TYPES)],
+            'file' => ['nullable', 'file', 'max:102400', 'required_unless:type,'.$externalTypes],
+            'url' => ['nullable', 'url', 'max:2048', 'required_if:type,'.$externalTypes],
             'duration_seconds' => ['nullable', 'integer', 'min:1', 'max:86400'],
         ]);
+    }
+
+    private function typeUsesExternalUrl(string $type): bool
+    {
+        return in_array($type, MediaAsset::EXTERNAL_URL_TYPES, true);
+    }
+
+    private function uploadCost(): int
+    {
+        return (int) FeaturePrice::query()
+            ->where('key', 'media_upload')
+            ->where('is_active', true)
+            ->value('token_cost');
     }
 
     /**
@@ -210,7 +268,7 @@ class MediaAssetController extends Controller
 
     private function mediaUrl(MediaAsset $mediaAsset): string
     {
-        if ($mediaAsset->type === MediaAsset::TYPE_WEB) {
+        if ($mediaAsset->usesExternalUrl()) {
             return $mediaAsset->path;
         }
 
@@ -226,11 +284,23 @@ class MediaAssetController extends Controller
      */
     private function availability(MediaAsset $mediaAsset): array
     {
-        if ($mediaAsset->type === MediaAsset::TYPE_WEB) {
+        if ($mediaAsset->usesExternalUrl()) {
+            $label = match ($mediaAsset->type) {
+                MediaAsset::TYPE_IMAGE_URL => 'External image',
+                MediaAsset::TYPE_VIDEO_URL => 'External video',
+                default => 'External URL',
+            };
+
+            $message = match ($mediaAsset->type) {
+                MediaAsset::TYPE_IMAGE_URL => 'Gambar akan dimuat langsung dari URL eksternal oleh player.',
+                MediaAsset::TYPE_VIDEO_URL => 'Video akan dimuat langsung dari URL eksternal oleh player.',
+                default => 'URL web akan dimuat langsung oleh player.',
+            };
+
             return [
                 'status' => 'external',
-                'label' => 'External URL',
-                'message' => 'URL web akan dimuat langsung oleh player.',
+                'label' => $label,
+                'message' => $message,
             ];
         }
 

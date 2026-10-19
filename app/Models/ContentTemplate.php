@@ -8,7 +8,19 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['tenant_id', 'name', 'slug', 'html', 'css', 'schema', 'is_active'])]
+/**
+ * @property string $id
+ * @property string $tenant_id
+ * @property string|null $platform_template_id
+ * @property string $name
+ * @property string $slug
+ * @property string $html
+ * @property string|null $css
+ * @property array<int, array<string, mixed>>|null $schema
+ * @property bool $is_active
+ * @property bool $is_rented
+ */
+#[Fillable(['tenant_id', 'platform_template_id', 'name', 'slug', 'html', 'css', 'schema', 'is_active', 'is_rented'])]
 class ContentTemplate extends Model
 {
     use HasUuids;
@@ -17,6 +29,7 @@ class ContentTemplate extends Model
     {
         return [
             'is_active' => 'boolean',
+            'is_rented' => 'boolean',
             'schema' => 'array',
         ];
     }
@@ -24,6 +37,11 @@ class ContentTemplate extends Model
     public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class);
+    }
+
+    public function platformTemplate(): BelongsTo
+    {
+        return $this->belongsTo(PlatformTemplate::class);
     }
 
     public function playlistItems(): HasMany

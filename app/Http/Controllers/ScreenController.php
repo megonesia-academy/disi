@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Screen;
+use App\Services\TenantBilling;
 use App\Support\ActivityLogger;
 use App\Support\CurrentTenant;
 use Illuminate\Http\RedirectResponse;
@@ -16,6 +17,7 @@ class ScreenController extends Controller
     public function __construct(
         private readonly CurrentTenant $currentTenant,
         private readonly ActivityLogger $activityLogger,
+        private readonly TenantBilling $billing,
     ) {}
 
     /**
@@ -49,6 +51,12 @@ class ScreenController extends Controller
                 Screen::ORIENTATION_LANDSCAPE,
                 Screen::ORIENTATION_PORTRAIT,
             ],
+            'usage' => [
+                'screens' => $tenant->screens()->count(),
+                'screen_limit' => $this->billing->screenLimit($tenant),
+                'free_screens' => $this->billing->freeLimit(TenantBilling::FEATURE_EXTRA_SCREEN),
+                'can_add_screen' => $this->billing->canAddScreen($tenant),
+            ],
         ]);
     }
 
@@ -59,6 +67,12 @@ class ScreenController extends Controller
     {
         $tenant = $this->currentTenant->resolve($request);
         $this->currentTenant->authorizeCanManage($request, $tenant);
+
+        if (! $this->billing->canAddScreen($tenant)) {
+            return back()->withErrors([
+                'billing' => 'Batas screen paket Anda tercapai ('.$this->billing->screenLimit($tenant).' screen). Beli slot screen tambahan di halaman Billing.',
+            ]);
+        }
 
         $screen = Screen::query()->create([
             ...$this->validated($request),

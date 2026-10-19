@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { Form } from '@inertiajs/vue3';
-import { ShieldCheck } from '@lucide/vue';
+import { ShieldCheck, ShieldOff } from '@lucide/vue';
 import { onUnmounted, ref } from 'vue';
 import Heading from '@/components/Heading.vue';
+import SubmitButton from '@/components/SubmitButton.vue';
 import TwoFactorRecoveryCodes from '@/components/TwoFactorRecoveryCodes.vue';
 import TwoFactorSetupModal from '@/components/TwoFactorSetupModal.vue';
 import { Button } from '@/components/ui/button';
@@ -55,9 +56,13 @@ onUnmounted(() => clearTwoFactorAuthData());
                     @success="showSetupModal = true"
                     #default="{ processing }"
                 >
-                    <Button type="submit" :disabled="processing">
-                        Enable 2FA
-                    </Button>
+                    <SubmitButton
+                        :processing="processing"
+                        label="Enable 2FA"
+                        loading-label="Mengaktifkan..."
+                    >
+                        <ShieldCheck class="size-4" />
+                    </SubmitButton>
                 </Form>
             </div>
         </div>
@@ -71,13 +76,14 @@ onUnmounted(() => clearTwoFactorAuthData());
 
             <div class="relative inline">
                 <Form v-bind="disable.form()" #default="{ processing }">
-                    <Button
+                    <SubmitButton
                         variant="destructive"
-                        type="submit"
-                        :disabled="processing"
+                        :processing="processing"
+                        label="Disable 2FA"
+                        loading-label="Menonaktifkan..."
                     >
-                        Disable 2FA
-                    </Button>
+                        <ShieldOff class="size-4" />
+                    </SubmitButton>
                 </Form>
             </div>
 

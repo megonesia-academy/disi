@@ -106,7 +106,7 @@ it('records activity when a screen is created updated and deleted', function ():
             ->exists())->toBeTrue();
 });
 
-it('lists only activity for the current tenant', function (): void {
+it('lets platform admins see activity from every tenant', function (): void {
     [$tenantA, $userA] = createActivityTenant('tenant-a-activity');
     [$tenantB] = createActivityTenant('tenant-b-activity');
 
@@ -123,12 +123,26 @@ it('lists only activity for the current tenant', function (): void {
         'properties' => ['device_name' => 'Tenant B Player'],
     ]);
 
-    $this->actingAs($userA)
-        ->withSession([CurrentTenant::SESSION_KEY => $tenantA->id])
-        ->get(route('activity.index'))
+    $admin = User::factory()->appAdmin()->create();
+
+    $this->actingAs($admin)
+        ->get(route('admin.activity.index'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('activity/Index')
-            ->where('activities.0.properties.device_name', 'Tenant A Player')
-            ->where('activities.0.event', 'device.command_queued'));
+            ->component('admin/Activity')
+            ->has('activities', 2)
+            ->where('tenants', fn ($tenants): bool => $tenants
+                ->pluck('name')
+                ->contains($tenantA->name)
+                && $tenants->pluck('name')->contains($tenantB->name))
+            ->has('events', 2)
+        );
+});
+
+it('forbids subscribers from the platform activity log', function (): void {
+    [, $user] = createActivityTenant('activity-subscriber');
+
+    $this->actingAs($user)
+        ->get(route('admin.activity.index'))
+        ->assertForbidden();
 });

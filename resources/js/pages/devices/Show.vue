@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { Send } from '@lucide/vue';
+import { computed, ref } from 'vue';
+import { Spinner } from '@/components/ui/spinner';
 
 type Device = {
     id: string;
@@ -82,6 +84,7 @@ const props = defineProps<{
 const commandForm = useForm({
     type: '',
 });
+const sendingCommand = ref<string | null>(null);
 
 const capabilityEntries = computed(() => {
     return Object.entries(props.device.capabilities ?? {});
@@ -168,10 +171,14 @@ const healthTone = computed(() => {
 });
 
 function sendCommand(type: string): void {
+    sendingCommand.value = type;
     commandForm.type = type;
     commandForm.post(`/devices/${props.device.key}/commands`, {
         preserveScroll: true,
         onSuccess: () => commandForm.reset(),
+        onFinish: () => {
+            sendingCommand.value = null;
+        },
     });
 }
 </script>
@@ -180,7 +187,7 @@ function sendCommand(type: string): void {
     <Head :title="`Monitor ${device.name}`" />
 
     <div
-        class="flex h-full flex-1 flex-col gap-6 overflow-x-auto bg-muted/20 p-4 md:p-6"
+        class="flex h-full flex-1 flex-col gap-6 overflow-x-auto bg-workspace p-4 md:p-6"
     >
         <section
             class="flex flex-wrap items-end justify-between gap-4 rounded-lg border bg-background p-5 shadow-sm"
@@ -219,7 +226,9 @@ function sendCommand(type: string): void {
         <section class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
             <div class="space-y-4">
                 <div class="rounded-lg border bg-background p-5 shadow-sm">
-                    <div class="flex flex-wrap items-start justify-between gap-4">
+                    <div
+                        class="flex flex-wrap items-start justify-between gap-4"
+                    >
                         <div>
                             <h2 class="text-lg font-semibold tracking-tight">
                                 Health
@@ -265,7 +274,9 @@ function sendCommand(type: string): void {
                 </div>
 
                 <div class="rounded-lg border bg-background p-5 shadow-sm">
-                    <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div
+                        class="flex flex-wrap items-center justify-between gap-3"
+                    >
                         <div>
                             <h2 class="text-lg font-semibold tracking-tight">
                                 Assigned screen
@@ -344,10 +355,17 @@ function sendCommand(type: string): void {
                             :key="command.type"
                             type="button"
                             class="rounded-lg border bg-background p-3 text-left transition-colors hover:bg-muted/35 disabled:cursor-not-allowed disabled:opacity-60"
-                            :disabled="commandForm.processing"
+                            :disabled="sendingCommand !== null"
+                            :aria-busy="sendingCommand === command.type"
                             @click="sendCommand(command.type)"
                         >
-                            <div class="text-sm font-semibold">
+                            <div
+                                class="flex items-center gap-2 text-sm font-semibold"
+                            >
+                                <Spinner
+                                    v-if="sendingCommand === command.type"
+                                />
+                                <Send v-else class="size-4" />
                                 {{ command.label }}
                             </div>
                             <div class="mt-1 text-xs text-muted-foreground">
@@ -372,7 +390,9 @@ function sendCommand(type: string): void {
                             :key="command.id"
                             class="py-3"
                         >
-                            <div class="flex items-center justify-between gap-3">
+                            <div
+                                class="flex items-center justify-between gap-3"
+                            >
                                 <div class="font-medium">
                                     {{ command.type.replace('_', ' ') }}
                                 </div>
@@ -408,7 +428,7 @@ function sendCommand(type: string): void {
                             <a
                                 :href="device.player_url"
                                 target="_blank"
-                                class="break-all font-medium text-primary underline-offset-4 hover:underline"
+                                class="font-medium break-all text-primary underline-offset-4 hover:underline"
                             >
                                 {{ device.player_url }}
                             </a>
@@ -417,7 +437,7 @@ function sendCommand(type: string): void {
                             <div class="text-xs text-muted-foreground">
                                 Manifest API
                             </div>
-                            <div class="break-all font-mono text-xs">
+                            <div class="font-mono text-xs break-all">
                                 {{ device.manifest_url }}
                             </div>
                         </div>
@@ -425,7 +445,7 @@ function sendCommand(type: string): void {
                             <div class="text-xs text-muted-foreground">
                                 Heartbeat API
                             </div>
-                            <div class="break-all font-mono text-xs">
+                            <div class="font-mono text-xs break-all">
                                 {{ device.heartbeat_url }}
                             </div>
                         </div>
@@ -480,7 +500,9 @@ function sendCommand(type: string): void {
                         <div
                             class="flex items-center justify-between gap-3 rounded-md bg-muted/45 p-3"
                         >
-                            <span class="text-muted-foreground">Media cache</span>
+                            <span class="text-muted-foreground"
+                                >Media cache</span
+                            >
                             <span class="font-medium">
                                 {{
                                     device.runtime.service_worker_cache === null
@@ -539,7 +561,7 @@ function sendCommand(type: string): void {
                     </p>
                     <p
                         v-if="device.runtime.user_agent"
-                        class="mt-3 break-words text-xs text-muted-foreground"
+                        class="mt-3 text-xs break-words text-muted-foreground"
                     >
                         {{ device.runtime.user_agent }}
                     </p>
@@ -565,9 +587,7 @@ function sendCommand(type: string): void {
                     </div>
 
                     <div class="mt-4">
-                        <div
-                            class="h-2 overflow-hidden rounded-full bg-muted"
-                        >
+                        <div class="h-2 overflow-hidden rounded-full bg-muted">
                             <div
                                 class="h-full rounded-full bg-primary transition-all"
                                 :style="{
@@ -628,7 +648,7 @@ function sendCommand(type: string): void {
                             class="flex justify-between gap-3 py-2"
                         >
                             <dt class="text-muted-foreground">{{ key }}</dt>
-                            <dd class="break-all text-right font-medium">
+                            <dd class="text-right font-medium break-all">
                                 {{ String(value) }}
                             </dd>
                         </div>

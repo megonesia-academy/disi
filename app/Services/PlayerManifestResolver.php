@@ -219,7 +219,7 @@ class PlayerManifestResolver
 
     private function mediaUrl(MediaAsset $mediaAsset): string
     {
-        if ($mediaAsset->type === MediaAsset::TYPE_WEB) {
+        if ($mediaAsset->usesExternalUrl()) {
             return $mediaAsset->path;
         }
 

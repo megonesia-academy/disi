@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
+import { RefreshCw } from '@lucide/vue';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
 type PairingStatus = {
@@ -181,10 +182,14 @@ onBeforeUnmount(() => {
             class="grid h-screen w-screen place-items-center px-8 py-10 text-center"
         >
             <div v-if="isResuming" class="w-full max-w-2xl">
-                <p class="text-sm font-medium uppercase tracking-[0.28em] text-cyan-300">
+                <p
+                    class="text-sm font-medium tracking-[0.28em] text-cyan-300 uppercase"
+                >
                     Connect display
                 </p>
-                <h1 class="mt-6 text-4xl font-semibold tracking-normal sm:text-6xl">
+                <h1
+                    class="mt-6 text-4xl font-semibold tracking-normal sm:text-6xl"
+                >
                     Menyambungkan kembali...
                 </h1>
                 <p class="mt-5 text-lg text-zinc-400">
@@ -198,7 +203,7 @@ onBeforeUnmount(() => {
                 >
                     <div class="text-left">
                         <p
-                            class="text-sm font-medium uppercase tracking-[0.28em] text-cyan-300"
+                            class="text-sm font-medium tracking-[0.28em] text-cyan-300 uppercase"
                         >
                             Connect display
                         </p>
@@ -229,10 +234,14 @@ onBeforeUnmount(() => {
                             class="mt-6 rounded-md bg-white px-5 py-3 text-sm font-medium text-zinc-950"
                             @click="refreshSession"
                         >
+                            <RefreshCw class="mr-2 inline size-4" />
                             Generate kode baru
                         </button>
 
-                        <p v-if="errorMessage" class="mt-4 text-sm text-red-300">
+                        <p
+                            v-if="errorMessage"
+                            class="mt-4 text-sm text-red-300"
+                        >
                             {{ errorMessage }}
                         </p>
                     </div>
@@ -248,7 +257,7 @@ onBeforeUnmount(() => {
                     </div>
                 </div>
 
-                <p class="mt-10 break-all text-sm text-zinc-500">
+                <p class="mt-10 text-sm break-all text-zinc-500">
                     {{ pairingUrl }}
                 </p>
             </div>

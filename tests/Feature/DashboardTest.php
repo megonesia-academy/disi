@@ -18,5 +18,6 @@ test('authenticated users can visit the dashboard', function () {
         ->component('Dashboard')
         ->has('screens')
         ->has('devices')
+        ->has('stats.active_schedules')
         ->has('setup'));
 });

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import InputError from '@/components/InputError.vue';
-import { Button } from '@/components/ui/button';
+import SubmitButton from '@/components/SubmitButton.vue';
 import { Input } from '@/components/ui/input';
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Save } from '@lucide/vue';
 
 const props = defineProps<{
     tenant: {
@@ -76,7 +77,7 @@ function updateLogo(event: Event): void {
     <Head title="Workspace Settings" />
 
     <div
-        class="flex h-full flex-1 flex-col gap-6 overflow-x-auto bg-muted/20 p-4 md:p-6"
+        class="flex h-full flex-1 flex-col gap-6 overflow-x-auto bg-workspace p-4 md:p-6"
     >
         <section
             class="flex flex-wrap items-end justify-between gap-4 rounded-lg border bg-background p-5 shadow-sm"
@@ -91,8 +92,8 @@ function updateLogo(event: Event): void {
                     Workspace settings
                 </h1>
                 <p class="text-sm text-muted-foreground">
-                    Kelola identitas tenant, billing contact, dan branding
-                    dasar player.
+                    Kelola identitas tenant, billing contact, dan branding dasar
+                    player.
                 </p>
             </div>
 
@@ -102,12 +103,6 @@ function updateLogo(event: Event): void {
                     class="rounded-md border bg-background px-3 py-2 text-sm font-medium shadow-xs transition-colors hover:bg-accent"
                 >
                     Dashboard
-                </Link>
-                <Link
-                    href="/activity"
-                    class="rounded-md border bg-background px-3 py-2 text-sm font-medium shadow-xs transition-colors hover:bg-accent"
-                >
-                    Activity
                 </Link>
             </div>
         </section>
@@ -163,7 +158,7 @@ function updateLogo(event: Event): void {
                         <input
                             type="file"
                             accept="image/*"
-                            class="border-input h-10 w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground shadow-xs outline-none file:mr-3 file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                            class="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-xs outline-none file:mr-3 file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                             @change="updateLogo"
                         />
                         <InputError :message="form.errors.logo" />
@@ -188,17 +183,23 @@ function updateLogo(event: Event): void {
                             </label>
                             <select
                                 v-model="form.logo_position"
-                                class="border-input h-9 w-full rounded-md border bg-background px-3 py-1 text-sm text-foreground shadow-xs outline-none option:bg-background option:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                                class="option:bg-background option:text-foreground h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                             >
                                 <option value="top-left">Top left</option>
                                 <option value="top-center">Top center</option>
                                 <option value="top-right">Top right</option>
                                 <option value="center-left">Center left</option>
                                 <option value="center">Center</option>
-                                <option value="center-right">Center right</option>
+                                <option value="center-right">
+                                    Center right
+                                </option>
                                 <option value="bottom-left">Bottom left</option>
-                                <option value="bottom-center">Bottom center</option>
-                                <option value="bottom-right">Bottom right</option>
+                                <option value="bottom-center">
+                                    Bottom center
+                                </option>
+                                <option value="bottom-right">
+                                    Bottom right
+                                </option>
                             </select>
                             <InputError :message="form.errors.logo_position" />
                         </div>
@@ -282,17 +283,14 @@ function updateLogo(event: Event): void {
                                         Manifest refresh
                                     </label>
                                     <Input
-                                        v-model="
-                                            form.manifest_refresh_seconds
-                                        "
+                                        v-model="form.manifest_refresh_seconds"
                                         type="number"
                                         min="10"
                                         max="3600"
                                     />
                                     <InputError
                                         :message="
-                                            form.errors
-                                                .manifest_refresh_seconds
+                                            form.errors.manifest_refresh_seconds
                                         "
                                     />
                                 </div>
@@ -375,7 +373,7 @@ function updateLogo(event: Event): void {
                                 <textarea
                                     v-model="form.billing_address"
                                     rows="3"
-                                    class="border-input w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                                    class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                                 />
                                 <InputError
                                     :message="form.errors.billing_address"
@@ -384,9 +382,13 @@ function updateLogo(event: Event): void {
                         </div>
                     </div>
 
-                    <Button type="submit" :disabled="form.processing">
-                        Save workspace
-                    </Button>
+                    <SubmitButton
+                        :processing="form.processing"
+                        label="Save workspace"
+                        loading-label="Menyimpan..."
+                    >
+                        <Save class="size-4" />
+                    </SubmitButton>
                 </div>
             </form>
 
@@ -413,12 +415,17 @@ function updateLogo(event: Event): void {
                                     :src="tenant.settings.logo_url"
                                     alt=""
                                     class="mx-auto mb-4 max-w-full border border-white/20 object-contain"
-                                    :style="{ width: `${form.logo_width}px`, height: 'auto' }"
+                                    :style="{
+                                        width: `${form.logo_width}px`,
+                                        height: 'auto',
+                                    }"
                                 />
                                 <div
                                     v-else
                                     class="mx-auto mb-4 grid size-16 place-items-center rounded-full text-xl font-semibold"
-                                    :style="{ backgroundColor: form.brand_color }"
+                                    :style="{
+                                        backgroundColor: form.brand_color,
+                                    }"
                                 >
                                     {{ form.name.charAt(0).toUpperCase() }}
                                 </div>

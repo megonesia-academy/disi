@@ -1,9 +1,23 @@
 <script setup lang="ts">
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
+import {
+    ArrowDown,
+    ArrowLeft,
+    ArrowUp,
+    CloudSun,
+    Clock3,
+    FlaskConical,
+    GripVertical,
+    Plus,
+    Rss,
+    Save,
+    Trash2,
+} from '@lucide/vue';
+import { computed, ref } from 'vue';
+import SubmitButton from '@/components/SubmitButton.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Head, Link, useForm } from '@inertiajs/vue3';
-import { ArrowDown, ArrowLeft, ArrowUp, CloudSun, Clock3, GripVertical, Plus, Rss, Save, Trash2 } from '@lucide/vue';
-import { computed, ref } from 'vue';
+import { isImageMedia, isVideoMedia } from '@/lib/media';
 
 type MediaAsset = {
     id: string;
@@ -19,7 +33,12 @@ type ContentTemplate = {
     slug: string;
     html: string;
     css: string | null;
-    schema: Array<{ name: string; label?: string; type?: string; default?: string }>;
+    schema: Array<{
+        name: string;
+        label?: string;
+        type?: string;
+        default?: unknown;
+    }>;
     is_active: boolean;
 };
 type ApiConnection = { id: string; name: string; provider: string };
@@ -33,7 +52,13 @@ type Overlay = {
         text?: string;
         source?: 'static' | 'array';
         items?: string[];
-        position: 'top' | 'bottom' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+        position:
+            | 'top'
+            | 'bottom'
+            | 'top-left'
+            | 'top-right'
+            | 'bottom-left'
+            | 'bottom-right';
         speed: number;
         text_color: string;
         background_color: string;
@@ -99,6 +124,9 @@ const props = defineProps<{
     templates: ContentTemplate[];
     apiConnections: ApiConnection[];
     playlist?: Playlist;
+    freeItems?: number;
+    itemCost?: number;
+    balance?: number;
 }>();
 
 function normalizedOverlay(overlay: Overlay): Overlay {
@@ -106,13 +134,17 @@ function normalizedOverlay(overlay: Overlay): Overlay {
         ...overlay,
         config: {
             ...overlay.config,
-            position: overlay.config.position ?? (overlay.type === 'clock' ? 'top-right' : 'bottom'),
+            position:
+                overlay.config.position ??
+                (overlay.type === 'clock' ? 'top-right' : 'bottom'),
             speed: overlay.config.speed ?? 60,
             text_color: overlay.config.text_color ?? '#ffffff',
             background_color: overlay.config.background_color ?? '#111827',
             format: overlay.config.format ?? '24h',
             api_connection_id: overlay.config.api_connection_id ?? null,
-            endpoint: overlay.config.endpoint ?? '/v1/forecast?latitude=-6.2&longitude=106.8&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=Asia%2FJakarta',
+            endpoint:
+                overlay.config.endpoint ??
+                '/v1/forecast?latitude=-6.2&longitude=106.8&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=Asia%2FJakarta',
             refresh_seconds: overlay.config.refresh_seconds ?? 900,
             offset_x: overlay.config.offset_x ?? 0,
             offset_y: overlay.config.offset_y ?? 0,
@@ -131,8 +163,34 @@ const form = useForm({
         template: item.template ?? 'media',
         api_connection_id: item.api_connection_id ?? null,
         content: item.content ?? {},
-        data_source: { mode: item.data_source?.mode ?? 'static', url: item.data_source?.url ?? '', refresh_seconds: item.data_source?.refresh_seconds ?? 60, timeout_seconds: item.data_source?.timeout_seconds ?? 5, auth_type: item.data_source?.auth_type ?? 'none', auth_value: '', mapping: item.data_source?.mapping ?? {}, mapping_json: JSON.stringify(item.data_source?.mapping ?? {}, null, 2) },
-        config: { fit: item.config?.fit ?? 'cover', overlays: item.config?.overlays ?? [], audio_asset_id: item.config?.audio_asset_id ?? null, audio_loop: item.config?.audio_loop ?? false, split_screen: item.config?.split_screen ?? { left_media_asset_id: null, right_media_asset_id: null, right_source: 'media', right_url: '', left_width: 33, right_width: 67 } },
+        data_source: {
+            mode: item.data_source?.mode ?? 'static',
+            url: item.data_source?.url ?? '',
+            refresh_seconds: item.data_source?.refresh_seconds ?? 60,
+            timeout_seconds: item.data_source?.timeout_seconds ?? 5,
+            auth_type: item.data_source?.auth_type ?? 'none',
+            auth_value: '',
+            mapping: item.data_source?.mapping ?? {},
+            mapping_json: JSON.stringify(
+                item.data_source?.mapping ?? {},
+                null,
+                2,
+            ),
+        },
+        config: {
+            fit: item.config?.fit ?? 'cover',
+            overlays: item.config?.overlays ?? [],
+            audio_asset_id: item.config?.audio_asset_id ?? null,
+            audio_loop: item.config?.audio_loop ?? false,
+            split_screen: item.config?.split_screen ?? {
+                left_media_asset_id: null,
+                right_media_asset_id: null,
+                right_source: 'media',
+                right_url: '',
+                left_width: 33,
+                right_width: 67,
+            },
+        },
     })),
 });
 
@@ -141,6 +199,73 @@ const dropIndex = ref<number | null>(null);
 const apiTestMessage = ref<string | null>(null);
 const apiTestData = ref<Record<string, unknown> | null>(null);
 const isEditing = computed(() => props.mode === 'edit');
+const formItems = computed(
+    () =>
+        (
+            form as unknown as {
+                items: Array<{ duration_seconds?: number }>;
+            }
+        ).items ?? [],
+);
+const formOverlays = computed(
+    () =>
+        (
+            form as unknown as {
+                overlays: Array<{ is_active?: boolean }>;
+            }
+        ).overlays ?? [],
+);
+const totalDuration = computed(() =>
+    formItems.value.reduce(
+        (total: number, item: { duration_seconds?: number }) =>
+            total + (item.duration_seconds ?? 0),
+        0,
+    ),
+);
+const activeOverlayCount = computed(
+    () =>
+        formOverlays.value.filter(
+            (overlay: { is_active?: boolean }) => overlay.is_active,
+        ).length,
+);
+
+const page = usePage();
+const billingError = computed(
+    () =>
+        (page.props.errors as Record<string, string> | undefined)?.[
+            'billing'
+        ] ?? null,
+);
+
+const freeItemLimit = computed(() => props.freeItems ?? 3);
+const extraItemCost = computed(() => props.itemCost ?? 0);
+const previouslySavedItems = computed(() => props.playlist?.items.length ?? 0);
+const estimatedItemCharge = computed(() => {
+    if (extraItemCost.value <= 0) {
+        return 0;
+    }
+
+    const free = freeItemLimit.value;
+    const billableBefore = Math.max(previouslySavedItems.value, free);
+    const billableNow = Math.max(formItems.value.length, free);
+
+    return Math.max(0, billableNow - billableBefore) * extraItemCost.value;
+});
+
+function formatLoopDuration(seconds: number): string {
+    if (seconds <= 0) {
+        return '0s';
+    }
+
+    const minutes = Math.floor(seconds / 60);
+    const remainder = seconds % 60;
+
+    if (minutes === 0) {
+        return `${remainder}s`;
+    }
+
+    return remainder > 0 ? `${minutes}m ${remainder}s` : `${minutes}m`;
+}
 
 function mediaAsset(mediaAssetId: string): MediaAsset | undefined {
     return props.mediaAssets.find((asset) => asset.id === mediaAssetId);
@@ -154,10 +279,36 @@ function addItem(): void {
         template: asset ? 'media' : 'announcement',
         api_connection_id: null,
         content: asset ? {} : { title: 'Announcement', subtitle: '', body: '' },
-        data_source: { mode: 'static', url: '', refresh_seconds: 60, timeout_seconds: 5, auth_type: 'none', auth_value: '', mapping: {}, mapping_json: '{}' },
+        data_source: {
+            mode: 'static',
+            url: '',
+            refresh_seconds: 60,
+            timeout_seconds: 5,
+            auth_type: 'none',
+            auth_value: '',
+            mapping: {},
+            mapping_json: '{}',
+        },
         duration_seconds: asset?.duration_seconds ?? 10,
         transition: 'fade',
-        config: { fit: 'cover', overlays: [], audio_asset_id: null, audio_loop: false, split_screen: { left_media_asset_id: props.mediaAssets.find((asset) => asset.type === 'image')?.id ?? null, right_media_asset_id: props.mediaAssets.find((asset) => asset.type === 'video')?.id ?? null, right_source: 'media', right_url: '', left_width: 33, right_width: 67 } },
+        config: {
+            fit: 'cover',
+            overlays: [],
+            audio_asset_id: null,
+            audio_loop: false,
+            split_screen: {
+                left_media_asset_id:
+                    props.mediaAssets.find((asset) => isImageMedia(asset.type))
+                        ?.id ?? null,
+                right_media_asset_id:
+                    props.mediaAssets.find((asset) => isVideoMedia(asset.type))
+                        ?.id ?? null,
+                right_source: 'media',
+                right_url: '',
+                left_width: 33,
+                right_width: 67,
+            },
+        },
     });
 }
 
@@ -169,46 +320,84 @@ function setTemplate(item: Item, template: string): void {
     item.template = template;
     item.template_id = null;
     item.api_connection_id = null;
-    item.config.split_screen ??= { left_media_asset_id: props.mediaAssets.find((asset) => asset.type === 'image')?.id ?? null, right_media_asset_id: props.mediaAssets.find((asset) => asset.type === 'video')?.id ?? null, right_source: 'media', right_url: '', left_width: 33, right_width: 67 };
+    item.config.split_screen ??= {
+        left_media_asset_id:
+            props.mediaAssets.find((asset) => isImageMedia(asset.type))?.id ??
+            null,
+        right_media_asset_id:
+            props.mediaAssets.find((asset) => isVideoMedia(asset.type))?.id ??
+            null,
+        right_source: 'media',
+        right_url: '',
+        left_width: 33,
+        right_width: 67,
+    };
     if (template !== 'media') {
         item.media_asset_id = null;
     } else if (!item.media_asset_id) {
         item.media_asset_id = props.mediaAssets[0]?.id ?? null;
     }
     item.content = item.content ?? {};
-    item.data_source = { mode: 'static', url: '', refresh_seconds: 60, timeout_seconds: 5, auth_type: 'none', auth_value: '', mapping: {}, mapping_json: '{}' };
+    item.data_source = {
+        mode: 'static',
+        url: '',
+        refresh_seconds: 60,
+        timeout_seconds: 5,
+        auth_type: 'none',
+        auth_value: '',
+        mapping: {},
+        mapping_json: '{}',
+    };
 }
 
 function setCustomTemplate(item: Item, templateId: string): void {
-    const template = props.templates.find((candidate) => candidate.id === templateId);
+    const template = props.templates.find(
+        (candidate) => candidate.id === templateId,
+    );
     item.template = 'custom';
     item.template_id = templateId || null;
     item.media_asset_id = null;
     item.template_definition = template ?? null;
     item.content = item.content ?? {};
-    item.data_source = item.data_source ?? { mode: 'static', url: '', refresh_seconds: 60, timeout_seconds: 5, auth_type: 'none', auth_value: '', mapping: {}, mapping_json: '{}' };
+    item.data_source = item.data_source ?? {
+        mode: 'static',
+        url: '',
+        refresh_seconds: 60,
+        timeout_seconds: 5,
+        auth_type: 'none',
+        auth_value: '',
+        mapping: {},
+        mapping_json: '{}',
+    };
     for (const field of template?.schema ?? []) {
-        if (item.content[field.name] === undefined && field.default !== undefined) {
+        if (
+            item.content[field.name] === undefined &&
+            field.default !== undefined
+        ) {
             item.content[field.name] = field.default;
         }
     }
 }
 
 function templateLabel(template?: string): string {
-    return {
-        media: 'Standard media',
-        announcement: 'Announcement',
-        'data-table': 'Data table',
-        'patient-queue': 'Patient queue',
-        'flight-board': 'Flight board',
-        menu: 'Restaurant menu',
-        weather: 'Weather',
-        'split-screen': 'Split screen',
-    }[template ?? 'media'] ?? 'Standard media';
+    return (
+        {
+            media: 'Standard media',
+            announcement: 'Announcement',
+            'data-table': 'Data table',
+            'patient-queue': 'Patient queue',
+            'flight-board': 'Flight board',
+            menu: 'Restaurant menu',
+            weather: 'Weather',
+            'split-screen': 'Split screen',
+        }[template ?? 'media'] ?? 'Standard media'
+    );
 }
 
 function templateOption(item: Item): string {
-    return item.template === 'custom' && item.template_id ? `custom:${item.template_id}` : (item.template ?? 'media');
+    return item.template === 'custom' && item.template_id
+        ? `custom:${item.template_id}`
+        : (item.template ?? 'media');
 }
 
 function mappingPlaceholder(item: Item): string {
@@ -219,14 +408,21 @@ function mappingPlaceholder(item: Item): string {
 
 function structuredContentJson(item: Item): string {
     const content = item.content ?? {};
-    const value = item.template === 'menu' ? { items: content.items ?? [] } : item.template === 'flight-board' ? { rows: content.rows ?? [] } : { columns: content.columns ?? [], rows: content.rows ?? [] };
+    const value =
+        item.template === 'menu'
+            ? { items: content.items ?? [] }
+            : item.template === 'flight-board'
+              ? { rows: content.rows ?? [] }
+              : { columns: content.columns ?? [], rows: content.rows ?? [] };
 
     return JSON.stringify(value, null, 2);
 }
 
 function structuredPlaceholder(item: Item): string {
-    if (item.template === 'menu') return '{"items":[{"name":"Nasi Goreng","description":"Ayam dan telur","price":"35.000","image":""}]}';
-    if (item.template === 'flight-board') return '{"rows":[{"flight":"GA-204","destination":"Bali","time":"10:30","gate":"A12","status":"Boarding"}]}';
+    if (item.template === 'menu')
+        return '{"items":[{"name":"Nasi Goreng","description":"Ayam dan telur","price":"35.000","image":""}]}';
+    if (item.template === 'flight-board')
+        return '{"rows":[{"flight":"GA-204","destination":"Bali","time":"10:30","gate":"A12","status":"Boarding"}]}';
 
     return '{"columns":["No","Name","Status"],"rows":[["001","Customer A","Waiting"]]}';
 }
@@ -234,17 +430,54 @@ function structuredPlaceholder(item: Item): string {
 function updateStructuredContent(item: Item, event: Event): void {
     try {
         const parsed = JSON.parse((event.target as HTMLTextAreaElement).value);
-        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+            return;
         item.content = { ...item.content, ...parsed };
     } catch {
         // Keep the previous valid content while the user is typing JSON.
     }
 }
 
+function customFieldJson(item: Item, fieldName: string): string {
+    return JSON.stringify(item.content?.[fieldName] ?? [], null, 2);
+}
+
+function updateCustomJsonField(
+    item: Item,
+    fieldName: string,
+    event: Event,
+): void {
+    try {
+        const value = JSON.parse((event.target as HTMLTextAreaElement).value);
+
+        item.content ??= {};
+        item.content[fieldName] = value;
+    } catch {
+        // Keep the last valid JSON value while the user is editing.
+    }
+}
+
+function isCustomImageValue(item: Item, fieldName: string): boolean {
+    const value = item.content?.[fieldName];
+
+    return (
+        typeof value === 'string' &&
+        value !== '' &&
+        !props.mediaAssets.some((asset) => asset.url === value)
+    );
+}
+
+function setImageValue(item: Item, fieldName: string, event: Event): void {
+    item.content ??= {};
+    item.content[fieldName] = (event.target as HTMLInputElement).value;
+}
+
 function parseMapping(value?: string): Record<string, string> {
     try {
         const parsed = JSON.parse(value || '{}');
-        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, string> : {};
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+            ? (parsed as Record<string, string>)
+            : {};
     } catch {
         return {};
     }
@@ -260,25 +493,37 @@ function valueAtPath(payload: unknown, path: string): unknown {
     }, payload);
 }
 
-function applyApiDataToContent(item: Item, payload: Record<string, unknown>): void {
-    const defaultMapping = item.template === 'weather'
-        ? {
-            title: 'current.temperature_2m',
-            subtitle: 'timezone',
-            body: 'current.relative_humidity_2m',
-            temperature: 'current.temperature_2m',
-            humidity: 'current.relative_humidity_2m',
-            weather_code: 'current.weather_code',
-            wind_speed: 'current.wind_speed_10m',
-        }
-        : {};
+function applyApiDataToContent(
+    item: Item,
+    payload: Record<string, unknown>,
+): void {
+    const defaultMapping =
+        item.template === 'weather'
+            ? {
+                  title: 'current.temperature_2m',
+                  subtitle: 'timezone',
+                  body: 'current.relative_humidity_2m',
+                  temperature: 'current.temperature_2m',
+                  humidity: 'current.relative_humidity_2m',
+                  weather_code: 'current.weather_code',
+                  wind_speed: 'current.wind_speed_10m',
+              }
+            : {};
     const mapping = parseMapping(item.data_source?.mapping_json);
 
-    if (Object.keys(mapping).length === 0 && Object.keys(defaultMapping).length > 0) {
-        item.data_source!.mapping_json = JSON.stringify(defaultMapping, null, 2);
+    if (
+        Object.keys(mapping).length === 0 &&
+        Object.keys(defaultMapping).length > 0
+    ) {
+        item.data_source!.mapping_json = JSON.stringify(
+            defaultMapping,
+            null,
+            2,
+        );
     }
 
-    const effectiveMapping = Object.keys(mapping).length > 0 ? mapping : defaultMapping;
+    const effectiveMapping =
+        Object.keys(mapping).length > 0 ? mapping : defaultMapping;
 
     if (Object.keys(effectiveMapping).length === 0) {
         return;
@@ -289,8 +534,12 @@ function applyApiDataToContent(item: Item, payload: Record<string, unknown>): vo
         const value = valueAtPath(payload, path);
 
         if (value !== undefined && value !== null) {
-            item.content![target] = ['title', 'subtitle', 'body'].includes(target)
-                ? Array.isArray(value) ? value.join('\n') : String(value)
+            item.content![target] = ['title', 'subtitle', 'body'].includes(
+                target,
+            )
+                ? Array.isArray(value)
+                    ? value.join('\n')
+                    : String(value)
                 : value;
         }
     });
@@ -303,18 +552,31 @@ async function testApi(item: Item): Promise<void> {
         apiTestMessage.value = 'Pilih API connection terlebih dahulu.';
         return;
     }
-    const response = await fetch(`/integrations/api/${item.api_connection_id}/test`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '',
+    const response = await fetch(
+        `/integrations/api/${item.api_connection_id}/test`,
+        {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+                'X-CSRF-TOKEN':
+                    document
+                        .querySelector('meta[name="csrf-token"]')
+                        ?.getAttribute('content') ?? '',
+            },
         },
-    });
+    );
     const payload = await response.json();
-    apiTestMessage.value = payload.message ?? (response.ok ? 'API connected.' : 'API test failed.');
+    apiTestMessage.value =
+        payload.message ??
+        (response.ok ? 'API connected.' : 'API test failed.');
     apiTestData.value = response.ok ? payload.data : null;
-    if (response.ok && payload.data && typeof payload.data === 'object' && !Array.isArray(payload.data)) {
+    if (
+        response.ok &&
+        payload.data &&
+        typeof payload.data === 'object' &&
+        !Array.isArray(payload.data)
+    ) {
         applyApiDataToContent(item, payload.data as Record<string, unknown>);
     }
 }
@@ -394,7 +656,8 @@ function addGlobalWeather(): void {
         config: {
             type: 'weather',
             api_connection_id: props.apiConnections[0]?.id ?? null,
-            endpoint: '/v1/forecast?latitude=-6.2&longitude=106.8&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=Asia%2FJakarta',
+            endpoint:
+                '/v1/forecast?latitude=-6.2&longitude=106.8&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=Asia%2FJakarta',
             refresh_seconds: 900,
             position: 'top-right',
             speed: 60,
@@ -416,7 +679,12 @@ function submit(): void {
         ...data,
         items: data.items.map((item) => ({
             ...item,
-            data_source: item.data_source ? { ...item.data_source, mapping: parseMapping(item.data_source.mapping_json) } : undefined,
+            data_source: item.data_source
+                ? {
+                      ...item.data_source,
+                      mapping: parseMapping(item.data_source.mapping_json),
+                  }
+                : undefined,
         })),
     }));
     const options = { preserveScroll: true };
@@ -431,87 +699,262 @@ function submit(): void {
 <template>
     <Head :title="isEditing ? `Edit ${form.name}` : 'New playlist'" />
 
-    <div class="flex min-h-full flex-1 flex-col gap-6 overflow-x-clip bg-muted/20 p-4 pb-24 md:p-6 md:pb-24">
-        <section class="sticky top-0 z-50 flex flex-wrap items-end justify-between gap-4 rounded-lg border bg-background/95 p-5 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/80">
-            <div>
-                <Link href="/playlists" class="text-sm text-muted-foreground hover:text-foreground">
+    <div
+        class="flex min-h-full min-w-0 flex-1 flex-col gap-4 overflow-x-clip bg-muted/20 p-3 pb-28 sm:p-4 md:gap-6 md:p-6 md:pb-24"
+    >
+        <div
+            v-if="billingError"
+            class="flex flex-wrap items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200"
+        >
+            <span class="min-w-0 flex-1">{{ billingError }}</span>
+            <Link
+                href="/workspace/billing"
+                class="shrink-0 font-semibold underline underline-offset-4"
+            >
+                Topup token
+            </Link>
+        </div>
+
+        <section
+            class="z-40 flex items-end justify-between gap-3 rounded-lg border bg-background/95 p-4 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80 md:sticky md:top-0 md:gap-4 md:p-5 md:shadow-lg"
+        >
+            <div class="min-w-0">
+                <Link
+                    href="/playlists"
+                    class="text-sm text-muted-foreground hover:text-foreground"
+                >
                     Playlists
                 </Link>
-                <h1 class="mt-2 text-2xl font-semibold tracking-tight">
+                <h1
+                    class="mt-1 truncate text-xl font-semibold tracking-tight md:mt-2 md:text-2xl"
+                >
                     {{ isEditing ? 'Edit playlist' : 'New playlist' }}
                 </h1>
-                <p class="mt-1 text-sm text-muted-foreground">
-                    Atur konten, urutan, transition, dan overlay dalam satu workspace yang fokus.
+                <p class="mt-1 hidden text-sm text-muted-foreground sm:block">
+                    Atur konten, urutan, transition, dan overlay dalam satu
+                    workspace yang fokus.
                 </p>
+                <div
+                    class="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground"
+                >
+                    <span
+                        class="rounded-full bg-muted px-2 py-0.5 font-medium text-foreground"
+                    >
+                        {{ formItems.length }} item
+                    </span>
+                    <span
+                        class="rounded-full bg-muted px-2 py-0.5 font-medium text-foreground"
+                    >
+                        {{ formatLoopDuration(totalDuration) }}
+                    </span>
+                    <span
+                        v-if="activeOverlayCount"
+                        class="rounded-full bg-muted px-2 py-0.5 font-medium text-foreground"
+                    >
+                        {{ activeOverlayCount }} overlay
+                    </span>
+                    <span
+                        v-if="estimatedItemCharge > 0"
+                        class="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-300"
+                    >
+                        +{{ estimatedItemCharge }} token
+                    </span>
+                </div>
             </div>
-            <div class="flex gap-2">
-                <Link href="/playlists" class="inline-flex items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm font-medium hover:bg-accent">
+            <div class="hidden shrink-0 gap-2 md:flex">
+                <Link
+                    href="/playlists"
+                    class="inline-flex items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm font-medium hover:bg-accent"
+                >
                     <ArrowLeft class="size-4" />
                     {{ isEditing ? 'Back' : 'Cancel' }}
                 </Link>
-                <Button type="button" :disabled="form.processing" @click="submit">
+                <SubmitButton
+                    type="button"
+                    :processing="form.processing"
+                    :label="isEditing ? 'Save changes' : 'Create playlist'"
+                    loading-label="Menyimpan..."
+                    @click="submit"
+                >
                     <Save class="size-4" />
-                    {{ isEditing ? 'Save changes' : 'Create playlist' }}
-                </Button>
+                </SubmitButton>
             </div>
         </section>
 
-        <form class="grid gap-6 xl:grid-cols-[minmax(0,360px)_minmax(0,1fr)]" @submit.prevent="submit">
-            <aside class="space-y-4">
-                <section class="rounded-lg border bg-background p-5 shadow-sm">
+        <form
+            class="grid min-w-0 gap-4 md:gap-6 xl:grid-cols-[minmax(0,360px)_minmax(0,1fr)]"
+            @submit.prevent="submit"
+        >
+            <aside class="min-w-0 space-y-4">
+                <section
+                    class="rounded-lg border bg-background p-4 shadow-sm sm:p-5"
+                >
                     <h2 class="font-semibold">Playlist details</h2>
                     <div class="mt-4 space-y-4">
                         <div>
-                            <label class="mb-1 block text-sm font-medium">Name</label>
-                            <Input v-model="form.name" placeholder="Lobby morning loop" />
+                            <label class="mb-1 block text-sm font-medium"
+                                >Name</label
+                            >
+                            <Input
+                                v-model="form.name"
+                                placeholder="Lobby morning loop"
+                            />
                         </div>
                         <div>
-                            <label class="mb-1 block text-sm font-medium">Description</label>
-                            <textarea v-model="form.description" class="border-input min-h-24 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50" placeholder="Catatan untuk tim operasional" />
+                            <label class="mb-1 block text-sm font-medium"
+                                >Description</label
+                            >
+                            <textarea
+                                v-model="form.description"
+                                class="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                                placeholder="Catatan untuk tim operasional"
+                            />
                         </div>
-                        <label class="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2 text-sm">
+                        <label
+                            class="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2 text-sm"
+                        >
                             <span>
                                 <span class="font-medium">Active</span>
-                                <span class="block text-xs text-muted-foreground">Bisa dipakai schedule.</span>
+                                <span
+                                    class="block text-xs text-muted-foreground"
+                                    >Bisa dipakai schedule.</span
+                                >
                             </span>
-                            <input v-model="form.is_active" type="checkbox" class="size-4 rounded border-input" />
+                            <input
+                                v-model="form.is_active"
+                                type="checkbox"
+                                class="size-4 rounded border-input"
+                            />
                         </label>
                         <div>
-                            <label class="mb-1 block text-sm font-medium">Publishing status</label>
-                            <select v-model="form.status" class="h-9 w-full rounded-md border bg-background px-3 text-sm">
+                            <label class="mb-1 block text-sm font-medium"
+                                >Publishing status</label
+                            >
+                            <select
+                                v-model="form.status"
+                                class="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                            >
                                 <option value="draft">Draft</option>
                                 <option value="published">Published</option>
                             </select>
-                            <p class="mt-1 text-xs text-muted-foreground">Draft tidak akan diputar di display.</p>
+                            <p class="mt-1 text-xs text-muted-foreground">
+                                Draft tidak akan diputar di display.
+                            </p>
                         </div>
                     </div>
                 </section>
 
-                <section class="rounded-lg border bg-background p-5 shadow-sm">
-                    <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <section
+                    class="rounded-lg border bg-background p-4 shadow-sm sm:p-5"
+                >
+                    <div>
                         <div>
-                            <div class="flex items-center gap-2"><Rss class="size-4 text-cyan-600" /><h2 class="font-semibold">Global overlays</h2></div>
-                            <p class="mt-1 text-xs text-muted-foreground">Tampil di semua item playlist.</p>
+                            <div class="flex items-center gap-2">
+                                <Rss class="size-4 text-cyan-600" />
+                                <h2 class="font-semibold">Global overlays</h2>
+                            </div>
+                            <p class="mt-1 text-xs text-muted-foreground">
+                                Tampil di semua item playlist.
+                            </p>
                         </div>
-                        <div class="flex flex-wrap gap-2 sm:justify-end">
-                            <Button type="button" size="sm" variant="outline" title="Add ticker" @click="addGlobalTicker"><Rss class="size-4" /> Ticker</Button>
-                            <Button type="button" size="sm" variant="outline" title="Add clock" @click="addGlobalClock"><Clock3 class="size-4" /> Clock</Button>
-                            <Button type="button" size="sm" variant="outline" title="Add weather" @click="addGlobalWeather"><CloudSun class="size-4" /> Weather</Button>
+                        <div class="mt-4 grid grid-cols-3 gap-2">
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                class="min-w-0 px-2 sm:px-3"
+                                title="Add ticker"
+                                @click="addGlobalTicker"
+                                ><Rss class="size-4" />
+                                <span class="truncate">Ticker</span></Button
+                            >
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                class="min-w-0 px-2 sm:px-3"
+                                title="Add clock"
+                                @click="addGlobalClock"
+                                ><Clock3 class="size-4" />
+                                <span class="truncate">Clock</span></Button
+                            >
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                class="min-w-0 px-2 sm:px-3"
+                                title="Add weather"
+                                @click="addGlobalWeather"
+                                ><CloudSun class="size-4" />
+                                <span class="truncate">Weather</span></Button
+                            >
                         </div>
                     </div>
-                    <div v-if="form.overlays.length === 0" class="mt-4 rounded-md border border-dashed p-4 text-sm text-muted-foreground">Belum ada overlay global.</div>
-                    <div v-for="overlay in form.overlays" :key="overlay.id ?? overlay.type" class="mt-4 rounded-md border bg-muted/20 p-3">
+                    <div
+                        v-if="form.overlays.length === 0"
+                        class="mt-4 rounded-md border border-dashed p-4 text-sm text-muted-foreground"
+                    >
+                        Belum ada overlay global.
+                    </div>
+                    <div
+                        v-for="overlay in form.overlays"
+                        :key="overlay.id ?? overlay.type"
+                        class="mt-4 rounded-md border bg-muted/20 p-3"
+                    >
                         <div class="flex items-center justify-between gap-2">
-                            <span class="text-sm font-medium">{{ overlay.type === 'clock' ? 'Clock' : overlay.type === 'weather' ? 'Weather' : 'Ticker' }}</span>
-                            <Button type="button" size="icon" variant="ghost" title="Remove overlay" @click="removeOverlay(overlay)"><Trash2 class="size-4" /></Button>
+                            <span class="text-sm font-medium">{{
+                                overlay.type === 'clock'
+                                    ? 'Clock'
+                                    : overlay.type === 'weather'
+                                      ? 'Weather'
+                                      : 'Ticker'
+                            }}</span>
+                            <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                title="Remove overlay"
+                                @click="removeOverlay(overlay)"
+                                ><Trash2 class="size-4"
+                            /></Button>
                         </div>
-                        <div v-if="overlay.type === 'ticker'" class="mt-3 space-y-3">
-                            <Input v-if="overlay.config.source !== 'array'" v-model="overlay.config.text" placeholder="Teks berjalan" />
-                            <select v-model="overlay.config.source" class="h-9 w-full rounded-md border bg-background px-3 text-sm"><option value="static">Static text</option><option value="array">Text array</option></select>
-                            <textarea v-if="overlay.config.source === 'array'" :value="(overlay.config.items ?? []).join('\n')" class="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm" placeholder="Satu pesan per baris" @input="overlay.config.items = (($event.target as HTMLTextAreaElement).value).split('\n').filter(Boolean)" />
+                        <div
+                            v-if="overlay.type === 'ticker'"
+                            class="mt-3 space-y-3"
+                        >
+                            <Input
+                                v-if="overlay.config.source !== 'array'"
+                                v-model="overlay.config.text"
+                                placeholder="Teks berjalan"
+                            />
+                            <select
+                                v-model="overlay.config.source"
+                                class="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                            >
+                                <option value="static">Static text</option>
+                                <option value="array">Text array</option>
+                            </select>
+                            <textarea
+                                v-if="overlay.config.source === 'array'"
+                                :value="(overlay.config.items ?? []).join('\n')"
+                                class="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                                placeholder="Satu pesan per baris"
+                                @input="
+                                    overlay.config.items = (
+                                        $event.target as HTMLTextAreaElement
+                                    ).value
+                                        .split('\n')
+                                        .filter(Boolean)
+                                "
+                            />
                             <div>
-                                <label class="mb-1 block text-xs font-medium">Position</label>
-                                <select v-model="overlay.config.position" class="h-9 w-full rounded-md border bg-background px-3 text-sm">
+                                <label class="mb-1 block text-xs font-medium"
+                                    >Position</label
+                                >
+                                <select
+                                    v-model="overlay.config.position"
+                                    class="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                                >
                                     <option value="bottom">Bottom</option>
                                     <option value="top">Top</option>
                                 </select>
@@ -520,173 +963,849 @@ function submit(): void {
                         <div v-else-if="overlay.type === 'clock'" class="mt-3">
                             <div class="grid gap-3 sm:grid-cols-2">
                                 <div>
-                                    <label class="mb-1 block text-xs font-medium">Clock format</label>
-                                    <select v-model="overlay.config.format" class="h-9 w-full rounded-md border bg-background px-3 text-sm"><option value="24h">24 hour</option><option value="12h">12 hour (AM/PM)</option></select>
-                                </div>
-                                <div>
-                                    <label class="mb-1 block text-xs font-medium">Position</label>
-                                    <select v-model="overlay.config.position" class="h-9 w-full rounded-md border bg-background px-3 text-sm">
-                                        <option value="top-left">Top left</option>
-                                        <option value="top-right">Top right</option>
-                                        <option value="bottom-left">Bottom left</option>
-                                        <option value="bottom-right">Bottom right</option>
+                                    <label
+                                        class="mb-1 block text-xs font-medium"
+                                        >Clock format</label
+                                    >
+                                    <select
+                                        v-model="overlay.config.format"
+                                        class="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                                    >
+                                        <option value="24h">24 hour</option>
+                                        <option value="12h">
+                                            12 hour (AM/PM)
+                                        </option>
                                     </select>
                                 </div>
-                                <div><label class="mb-1 block text-xs font-medium">Horizontal offset</label><Input v-model="overlay.config.offset_x" type="number" min="-500" max="500" /><p class="mt-1 text-[11px] text-muted-foreground">Positif ke kanan.</p></div>
-                                <div><label class="mb-1 block text-xs font-medium">Vertical offset</label><Input v-model="overlay.config.offset_y" type="number" min="-500" max="500" /><p class="mt-1 text-[11px] text-muted-foreground">Positif ke bawah.</p></div>
+                                <div>
+                                    <label
+                                        class="mb-1 block text-xs font-medium"
+                                        >Position</label
+                                    >
+                                    <select
+                                        v-model="overlay.config.position"
+                                        class="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                                    >
+                                        <option value="top-left">
+                                            Top left
+                                        </option>
+                                        <option value="top-right">
+                                            Top right
+                                        </option>
+                                        <option value="bottom-left">
+                                            Bottom left
+                                        </option>
+                                        <option value="bottom-right">
+                                            Bottom right
+                                        </option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label
+                                        class="mb-1 block text-xs font-medium"
+                                        >Horizontal offset</label
+                                    ><Input
+                                        v-model="overlay.config.offset_x"
+                                        type="number"
+                                        min="-500"
+                                        max="500"
+                                    />
+                                    <p
+                                        class="mt-1 text-[11px] text-muted-foreground"
+                                    >
+                                        Positif ke kanan.
+                                    </p>
+                                </div>
+                                <div>
+                                    <label
+                                        class="mb-1 block text-xs font-medium"
+                                        >Vertical offset</label
+                                    ><Input
+                                        v-model="overlay.config.offset_y"
+                                        type="number"
+                                        min="-500"
+                                        max="500"
+                                    />
+                                    <p
+                                        class="mt-1 text-[11px] text-muted-foreground"
+                                    >
+                                        Positif ke bawah.
+                                    </p>
+                                </div>
                             </div>
                         </div>
                         <div v-else class="mt-3 space-y-3">
                             <div>
-                                <label class="mb-1 block text-xs font-medium">API connection</label>
-                                <select v-model="overlay.config.api_connection_id" class="h-9 w-full rounded-md border bg-background px-3 text-sm"><option value="">Pilih API connection</option><option v-for="connection in apiConnections" :key="connection.id" :value="connection.id">{{ connection.name }} · {{ connection.provider }}</option></select>
+                                <label class="mb-1 block text-xs font-medium"
+                                    >API connection</label
+                                >
+                                <select
+                                    v-model="overlay.config.api_connection_id"
+                                    class="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                                >
+                                    <option value="">
+                                        Pilih API connection
+                                    </option>
+                                    <option
+                                        v-for="connection in apiConnections"
+                                        :key="connection.id"
+                                        :value="connection.id"
+                                    >
+                                        {{ connection.name }} ·
+                                        {{ connection.provider }}
+                                    </option>
+                                </select>
                             </div>
                             <div>
-                                <label class="mb-1 block text-xs font-medium">Endpoint relatif</label>
-                                <Input v-model="overlay.config.endpoint" placeholder="/v1/forecast?latitude=-6.2&longitude=106.8&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=Asia%2FJakarta" />
-                                <p class="mt-1 text-xs text-muted-foreground">Endpoint harus relatif dan memakai provider yang sudah approved.</p>
+                                <label class="mb-1 block text-xs font-medium"
+                                    >Endpoint relatif</label
+                                >
+                                <Input
+                                    v-model="overlay.config.endpoint"
+                                    placeholder="/v1/forecast?latitude=-6.2&longitude=106.8&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=Asia%2FJakarta"
+                                />
+                                <p class="mt-1 text-xs text-muted-foreground">
+                                    Endpoint harus relatif dan memakai provider
+                                    yang sudah approved.
+                                </p>
                             </div>
                             <div class="grid gap-3 sm:grid-cols-2">
-                                <div><label class="mb-1 block text-xs font-medium">Refresh (detik)</label><Input v-model="overlay.config.refresh_seconds" type="number" min="10" max="86400" /></div>
-                                <div><label class="mb-1 block text-xs font-medium">Position</label><select v-model="overlay.config.position" class="h-9 w-full rounded-md border bg-background px-3 text-sm"><option value="top-left">Top left</option><option value="top-right">Top right</option><option value="bottom-left">Bottom left</option><option value="bottom-right">Bottom right</option></select></div>
-                                <div><label class="mb-1 block text-xs font-medium">Horizontal offset</label><Input v-model="overlay.config.offset_x" type="number" min="-500" max="500" /><p class="mt-1 text-[11px] text-muted-foreground">Positif ke kanan.</p></div>
-                                <div><label class="mb-1 block text-xs font-medium">Vertical offset</label><Input v-model="overlay.config.offset_y" type="number" min="-500" max="500" /><p class="mt-1 text-[11px] text-muted-foreground">Positif ke bawah.</p></div>
+                                <div>
+                                    <label
+                                        class="mb-1 block text-xs font-medium"
+                                        >Refresh (detik)</label
+                                    ><Input
+                                        v-model="overlay.config.refresh_seconds"
+                                        type="number"
+                                        min="10"
+                                        max="86400"
+                                    />
+                                </div>
+                                <div>
+                                    <label
+                                        class="mb-1 block text-xs font-medium"
+                                        >Position</label
+                                    ><select
+                                        v-model="overlay.config.position"
+                                        class="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                                    >
+                                        <option value="top-left">
+                                            Top left
+                                        </option>
+                                        <option value="top-right">
+                                            Top right
+                                        </option>
+                                        <option value="bottom-left">
+                                            Bottom left
+                                        </option>
+                                        <option value="bottom-right">
+                                            Bottom right
+                                        </option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label
+                                        class="mb-1 block text-xs font-medium"
+                                        >Horizontal offset</label
+                                    ><Input
+                                        v-model="overlay.config.offset_x"
+                                        type="number"
+                                        min="-500"
+                                        max="500"
+                                    />
+                                    <p
+                                        class="mt-1 text-[11px] text-muted-foreground"
+                                    >
+                                        Positif ke kanan.
+                                    </p>
+                                </div>
+                                <div>
+                                    <label
+                                        class="mb-1 block text-xs font-medium"
+                                        >Vertical offset</label
+                                    ><Input
+                                        v-model="overlay.config.offset_y"
+                                        type="number"
+                                        min="-500"
+                                        max="500"
+                                    />
+                                    <p
+                                        class="mt-1 text-[11px] text-muted-foreground"
+                                    >
+                                        Positif ke bawah.
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </section>
             </aside>
 
-            <section class="rounded-lg border bg-background shadow-sm">
-                <div class="flex items-center justify-between border-b p-5">
-                    <div>
+            <section class="min-w-0 rounded-lg border bg-background shadow-sm">
+                <div
+                    class="flex items-start justify-between gap-3 border-b p-4 sm:items-center sm:p-5"
+                >
+                    <div class="min-w-0">
                         <h2 class="font-semibold">Playlist items</h2>
-                        <p class="mt-1 text-sm text-muted-foreground">Susun urutan dan properti tiap media.</p>
+                        <p
+                            class="mt-1 hidden text-sm text-muted-foreground sm:block"
+                        >
+                            Susun urutan dan properti tiap media.
+                        </p>
                     </div>
-                    <Button type="button" size="sm" variant="outline" @click="addItem"><Plus class="size-4" /> Add item</Button>
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        class="shrink-0"
+                        @click="addItem"
+                        ><Plus class="size-4" /> Add item</Button
+                    >
                 </div>
-                <div v-if="mediaAssets.length === 0 && form.items.length === 0" class="p-8 text-sm text-muted-foreground">Tambahkan item template atau upload media untuk memakai template standar.</div>
-                <div v-else-if="form.items.length === 0" class="p-8 text-sm text-muted-foreground">Belum ada item. Klik Add item untuk mulai.</div>
-                <div v-for="(item, index) in form.items" :key="item.id ?? index" class="border-b p-4 last:border-b-0" :class="dropIndex === index && draggedIndex !== index ? 'bg-primary/10' : ''" @dragover.prevent="dropIndex = index" @drop="dropItem(index, $event)">
-                    <div class="flex items-start gap-3">
-                        <span draggable="true" class="grid size-8 shrink-0 cursor-grab place-items-center rounded-md border border-dashed text-muted-foreground" title="Drag to reorder" @dragstart="startDrag(index, $event)" @dragend="draggedIndex = null; dropIndex = null"><GripVertical class="size-4" /></span>
-                        <div class="grid size-8 shrink-0 place-items-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">{{ index + 1 }}</div>
-                        <div class="grid size-20 shrink-0 place-items-center overflow-hidden rounded-md border bg-muted">
+                <p
+                    v-if="extraItemCost > 0"
+                    class="border-b bg-muted/30 px-4 py-2 text-[11px] text-muted-foreground"
+                >
+                    {{ freeItemLimit }} item pertama gratis · item berikutnya
+                    {{ extraItemCost }} token/item.
+                    <span
+                        v-if="estimatedItemCharge > 0"
+                        class="font-semibold text-amber-600 dark:text-amber-400"
+                    >
+                        Estimasi biaya simpan: {{ estimatedItemCharge }} token.
+                    </span>
+                    <span
+                        v-if="(balance ?? 0) < estimatedItemCharge"
+                        class="font-semibold text-red-600 dark:text-red-400"
+                    >
+                        Saldo token tidak cukup.
+                    </span>
+                </p>
+                <div
+                    v-if="mediaAssets.length === 0 && form.items.length === 0"
+                    class="p-8 text-sm text-muted-foreground"
+                >
+                    Tambahkan item template atau upload media untuk memakai
+                    template standar.
+                </div>
+                <div
+                    v-else-if="form.items.length === 0"
+                    class="p-8 text-sm text-muted-foreground"
+                >
+                    Belum ada item. Klik Add item untuk mulai.
+                </div>
+                <div
+                    v-for="(item, index) in form.items"
+                    :key="item.id ?? index"
+                    class="min-w-0 border-b p-3 last:border-b-0 sm:p-4"
+                    :class="
+                        dropIndex === index && draggedIndex !== index
+                            ? 'bg-primary/10'
+                            : ''
+                    "
+                    @dragover.prevent="dropIndex = index"
+                    @drop="dropItem(index, $event)"
+                >
+                    <div
+                        class="grid min-w-0 grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-2 sm:grid-cols-[auto_auto_5rem_minmax(0,1fr)_auto] sm:gap-3"
+                    >
+                        <span
+                            draggable="true"
+                            class="grid size-8 shrink-0 cursor-grab place-items-center rounded-md border border-dashed text-muted-foreground"
+                            title="Drag to reorder"
+                            @dragstart="startDrag(index, $event)"
+                            @dragend="
+                                draggedIndex = null;
+                                dropIndex = null;
+                            "
+                            ><GripVertical class="size-4"
+                        /></span>
+                        <div
+                            class="grid size-8 shrink-0 place-items-center rounded-md bg-primary text-sm font-semibold text-primary-foreground"
+                        >
+                            {{ index + 1 }}
+                        </div>
+                        <div
+                            class="col-span-3 row-start-2 grid aspect-video w-full place-items-center overflow-hidden rounded-md border bg-muted sm:col-span-1 sm:row-start-auto sm:aspect-auto sm:size-20"
+                        >
                             <img
-                                v-if="item.template === 'media' && mediaAsset(item.media_asset_id ?? '')?.type === 'image'"
-                                :src="mediaAsset(item.media_asset_id ?? '')?.url"
-                                :alt="mediaAsset(item.media_asset_id ?? '')?.name"
+                                v-if="
+                                    item.template === 'media' &&
+                                    isImageMedia(
+                                        mediaAsset(item.media_asset_id ?? '')
+                                            ?.type,
+                                    )
+                                "
+                                :src="
+                                    mediaAsset(item.media_asset_id ?? '')?.url
+                                "
+                                :alt="
+                                    mediaAsset(item.media_asset_id ?? '')?.name
+                                "
                                 class="h-full w-full object-cover"
                             />
-                            <span v-else class="px-1 text-center text-[10px] font-semibold uppercase text-muted-foreground">
-                                {{ item.template === 'media' ? (mediaAsset(item.media_asset_id ?? '')?.type ?? 'media') : templateLabel(item.template) }}
+                            <span
+                                v-else
+                                class="px-1 text-center text-[10px] font-semibold text-muted-foreground uppercase"
+                            >
+                                {{
+                                    item.template === 'media'
+                                        ? (mediaAsset(item.media_asset_id ?? '')
+                                              ?.type ?? 'media')
+                                        : templateLabel(item.template)
+                                }}
                             </span>
                         </div>
-                        <div class="min-w-0 flex-1">
-                            <select :value="templateOption(item)" class="mb-2 w-full rounded-md border bg-background px-3 py-2 text-sm" @change="setTemplate(item, ($event.target as HTMLSelectElement).value)">
+                        <div
+                            class="col-span-3 row-start-3 min-w-0 sm:col-span-1 sm:row-start-auto"
+                        >
+                            <select
+                                :value="templateOption(item)"
+                                class="mb-2 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                                @change="
+                                    setTemplate(
+                                        item,
+                                        ($event.target as HTMLSelectElement)
+                                            .value,
+                                    )
+                                "
+                            >
                                 <option value="media">Standard media</option>
-                                <option value="announcement">Announcement</option>
+                                <option value="announcement">
+                                    Announcement
+                                </option>
                                 <option value="data-table">Data table</option>
-                                <option value="patient-queue">Patient queue</option>
-                                <option value="flight-board">Flight board</option>
+                                <option value="patient-queue">
+                                    Patient queue
+                                </option>
+                                <option value="flight-board">
+                                    Flight board
+                                </option>
                                 <option value="menu">Restaurant menu</option>
                                 <option value="weather">Weather</option>
-                                <option value="split-screen">Split screen</option>
-                                <option v-for="template in templates" :key="template.id" :value="`custom:${template.id}`">{{ template.name }}</option>
+                                <option value="split-screen">
+                                    Split screen
+                                </option>
+                                <option
+                                    v-for="template in templates"
+                                    :key="template.id"
+                                    :value="`custom:${template.id}`"
+                                >
+                                    {{ template.name }}
+                                </option>
                             </select>
-                            <select v-if="(item.template ?? 'media') === 'media'" v-model="item.media_asset_id" class="w-full rounded-md border bg-background px-3 py-2 text-sm"><option v-for="asset in mediaAssets" :key="asset.id" :value="asset.id">{{ asset.name }} · {{ asset.type }}</option></select>
-                            <div class="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-                                <select v-model="item.config.audio_asset_id" class="h-9 w-full rounded-md border bg-background px-3 text-sm"><option value="">Tanpa audio</option><option v-for="asset in mediaAssets.filter((candidate) => candidate.type === 'audio')" :key="asset.id" :value="asset.id">Audio: {{ asset.name }}</option></select>
-                                <label class="flex h-9 items-center gap-2 whitespace-nowrap text-xs"><input v-model="item.config.audio_loop" type="checkbox" class="size-4" /> Loop</label>
+                            <select
+                                v-if="(item.template ?? 'media') === 'media'"
+                                v-model="item.media_asset_id"
+                                class="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                            >
+                                <option
+                                    v-for="asset in mediaAssets"
+                                    :key="asset.id"
+                                    :value="asset.id"
+                                >
+                                    {{ asset.name }} · {{ asset.type }}
+                                </option>
+                            </select>
+                            <div
+                                class="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]"
+                            >
+                                <select
+                                    v-model="item.config.audio_asset_id"
+                                    class="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                                >
+                                    <option value="">Tanpa audio</option>
+                                    <option
+                                        v-for="asset in mediaAssets.filter(
+                                            (candidate) =>
+                                                candidate.type === 'audio',
+                                        )"
+                                        :key="asset.id"
+                                        :value="asset.id"
+                                    >
+                                        Audio: {{ asset.name }}
+                                    </option>
+                                </select>
+                                <label
+                                    class="flex h-9 items-center gap-2 text-xs whitespace-nowrap"
+                                    ><input
+                                        v-model="item.config.audio_loop"
+                                        type="checkbox"
+                                        class="size-4"
+                                    />
+                                    Loop</label
+                                >
                             </div>
-                            <div v-if="item.template === 'split-screen'" class="mt-2 grid gap-2 rounded-md border bg-muted/30 p-3 text-xs sm:grid-cols-2">
+                            <div
+                                v-if="item.template === 'split-screen'"
+                                class="mt-2 grid gap-2 rounded-md border bg-muted/30 p-3 text-xs sm:grid-cols-2"
+                            >
                                 <div>
-                                    <label class="mb-1 block font-medium">Left image · 1/3</label>
-                                    <select v-model="item.config.split_screen!.left_media_asset_id" class="h-9 w-full rounded-md border bg-background px-3 text-sm"><option value="">Pilih gambar</option><option v-for="asset in mediaAssets.filter((candidate) => candidate.type === 'image')" :key="asset.id" :value="asset.id">{{ asset.name }}</option></select>
+                                    <label class="mb-1 block font-medium"
+                                        >Left image · 1/3</label
+                                    >
+                                    <select
+                                        v-model="
+                                            item.config.split_screen!
+                                                .left_media_asset_id
+                                        "
+                                        class="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                                    >
+                                        <option value="">Pilih gambar</option>
+                                        <option
+                                            v-for="asset in mediaAssets.filter(
+                                                (candidate) =>
+                                                    isImageMedia(
+                                                        candidate.type,
+                                                    ),
+                                            )"
+                                            :key="asset.id"
+                                            :value="asset.id"
+                                        >
+                                            {{ asset.name }}
+                                        </option>
+                                    </select>
                                 </div>
                                 <div>
-                                    <label class="mb-1 block font-medium">Right source · 2/3</label>
-                                    <select v-model="item.config.split_screen!.right_source" class="h-9 w-full rounded-md border bg-background px-3 text-sm"><option value="media">Video asset</option><option value="youtube">YouTube</option><option value="url">URL video / web</option></select>
+                                    <label class="mb-1 block font-medium"
+                                        >Right source · 2/3</label
+                                    >
+                                    <select
+                                        v-model="
+                                            item.config.split_screen!
+                                                .right_source
+                                        "
+                                        class="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                                    >
+                                        <option value="media">
+                                            Video asset
+                                        </option>
+                                        <option value="youtube">YouTube</option>
+                                        <option value="url">
+                                            URL video / web
+                                        </option>
+                                    </select>
                                 </div>
-                                <div v-if="item.config.split_screen?.right_source === 'media'" class="sm:col-span-2">
-                                    <select v-model="item.config.split_screen!.right_media_asset_id" class="h-9 w-full rounded-md border bg-background px-3 text-sm"><option value="">Pilih video</option><option v-for="asset in mediaAssets.filter((candidate) => candidate.type === 'video' || candidate.type === 'web')" :key="asset.id" :value="asset.id">{{ asset.name }} · {{ asset.type }}</option></select>
+                                <div
+                                    v-if="
+                                        item.config.split_screen
+                                            ?.right_source === 'media'
+                                    "
+                                    class="sm:col-span-2"
+                                >
+                                    <select
+                                        v-model="
+                                            item.config.split_screen!
+                                                .right_media_asset_id
+                                        "
+                                        class="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                                    >
+                                        <option value="">Pilih video</option>
+                                        <option
+                                            v-for="asset in mediaAssets.filter(
+                                                (candidate) =>
+                                                    isVideoMedia(
+                                                        candidate.type,
+                                                    ) ||
+                                                    candidate.type === 'web',
+                                            )"
+                                            :key="asset.id"
+                                            :value="asset.id"
+                                        >
+                                            {{ asset.name }} · {{ asset.type }}
+                                        </option>
+                                    </select>
                                 </div>
                                 <div v-else class="sm:col-span-2">
-                                    <Input v-model="item.config.split_screen!.right_url" :placeholder="item.config.split_screen?.right_source === 'youtube' ? 'https://www.youtube.com/watch?v=...' : 'https://example.com/video.m3u8'" />
+                                    <Input
+                                        v-model="
+                                            item.config.split_screen!.right_url
+                                        "
+                                        :placeholder="
+                                            item.config.split_screen
+                                                ?.right_source === 'youtube'
+                                                ? 'https://www.youtube.com/watch?v=...'
+                                                : 'https://example.com/video.m3u8'
+                                        "
+                                    />
                                 </div>
-                                <div><label class="mb-1 block font-medium">Left width (%)</label><Input v-model="item.config.split_screen!.left_width" type="number" min="20" max="80" /></div>
-                                <div><label class="mb-1 block font-medium">Right width (%)</label><Input v-model="item.config.split_screen!.right_width" type="number" min="20" max="80" /></div>
+                                <div>
+                                    <label class="mb-1 block font-medium"
+                                        >Left width (%)</label
+                                    ><Input
+                                        v-model="
+                                            item.config.split_screen!.left_width
+                                        "
+                                        type="number"
+                                        min="20"
+                                        max="80"
+                                    />
+                                </div>
+                                <div>
+                                    <label class="mb-1 block font-medium"
+                                        >Right width (%)</label
+                                    ><Input
+                                        v-model="
+                                            item.config.split_screen!
+                                                .right_width
+                                        "
+                                        type="number"
+                                        min="20"
+                                        max="80"
+                                    />
+                                </div>
                             </div>
-                            <div class="mt-1 truncate text-xs text-muted-foreground">
-                                {{ item.template === 'media' ? (mediaAsset(item.media_asset_id ?? '')?.name ?? 'Media belum dipilih') : (item.template === 'custom' ? (item.template_definition?.name ?? 'Custom template') : templateLabel(item.template)) }}
+                            <div
+                                class="mt-1 truncate text-xs text-muted-foreground"
+                            >
+                                {{
+                                    item.template === 'media'
+                                        ? (mediaAsset(item.media_asset_id ?? '')
+                                              ?.name ?? 'Media belum dipilih')
+                                        : item.template === 'custom'
+                                          ? (item.template_definition?.name ??
+                                            'Custom template')
+                                          : templateLabel(item.template)
+                                }}
                             </div>
                         </div>
-                        <div class="flex shrink-0 gap-1">
-                            <Button type="button" size="icon" variant="ghost" :disabled="index === 0" title="Move up" @click="moveItem(index, -1)"><ArrowUp class="size-4" /></Button>
-                            <Button type="button" size="icon" variant="ghost" :disabled="index === form.items.length - 1" title="Move down" @click="moveItem(index, 1)"><ArrowDown class="size-4" /></Button>
-                            <Button type="button" size="icon" variant="ghost" title="Remove item" @click="removeItem(index)"><Trash2 class="size-4" /></Button>
+                        <div
+                            class="col-start-3 row-start-1 flex shrink-0 gap-1 justify-self-end sm:col-start-auto sm:row-start-auto"
+                        >
+                            <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                :disabled="index === 0"
+                                title="Move up"
+                                @click="moveItem(index, -1)"
+                                ><ArrowUp class="size-4"
+                            /></Button>
+                            <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                :disabled="index === form.items.length - 1"
+                                title="Move down"
+                                @click="moveItem(index, 1)"
+                                ><ArrowDown class="size-4"
+                            /></Button>
+                            <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                title="Remove item"
+                                @click="removeItem(index)"
+                                ><Trash2 class="size-4"
+                            /></Button>
                         </div>
                     </div>
                     <div class="mt-3 grid gap-3 sm:grid-cols-3">
-                        <div><label class="mb-1 block text-xs font-medium">Duration seconds</label><Input v-model="item.duration_seconds" type="number" min="1" /></div>
-                        <div><label class="mb-1 block text-xs font-medium">Transition</label><select v-model="item.transition" class="h-9 w-full rounded-md border bg-background px-3 text-sm"><option value="none">None</option><option value="fade">Fade</option><option value="slide-left">Slide left</option><option value="slide-right">Slide right</option><option value="slide-up">Slide up</option><option value="slide-down">Slide down</option><option value="zoom">Zoom</option></select></div>
-                        <div><label class="mb-1 block text-xs font-medium">Media fit</label><select v-model="item.config.fit" class="h-9 w-full rounded-md border bg-background px-3 text-sm"><option value="cover">Cover</option><option value="contain">Contain</option><option value="fill">Fill</option></select></div>
+                        <div>
+                            <label class="mb-1 block text-xs font-medium"
+                                >Duration seconds</label
+                            ><Input
+                                v-model="item.duration_seconds"
+                                type="number"
+                                min="1"
+                            />
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-xs font-medium"
+                                >Transition</label
+                            ><select
+                                v-model="item.transition"
+                                class="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                            >
+                                <option value="none">None</option>
+                                <option value="fade">Fade</option>
+                                <option value="slide-left">Slide left</option>
+                                <option value="slide-right">Slide right</option>
+                                <option value="slide-up">Slide up</option>
+                                <option value="slide-down">Slide down</option>
+                                <option value="zoom">Zoom</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-xs font-medium"
+                                >Media fit</label
+                            ><select
+                                v-model="item.config.fit"
+                                class="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                            >
+                                <option value="cover">Cover</option>
+                                <option value="contain">Contain</option>
+                                <option value="fill">Fill</option>
+                            </select>
+                        </div>
                     </div>
-                    <div v-if="(item.template ?? 'media') !== 'media'" class="mt-3 grid gap-3 rounded-md border bg-muted/20 p-3 sm:grid-cols-2">
+                    <div
+                        v-if="(item.template ?? 'media') !== 'media'"
+                        class="mt-3 grid gap-3 rounded-md border bg-muted/20 p-3 sm:grid-cols-2"
+                    >
                         <div>
-                            <label class="mb-1 block text-xs font-medium">Title</label>
-                            <Input v-model="item.content!.title" :placeholder="templateLabel(item.template)" />
+                            <label class="mb-1 block text-xs font-medium"
+                                >Title</label
+                            >
+                            <Input
+                                v-model="item.content!.title"
+                                :placeholder="templateLabel(item.template)"
+                            />
                         </div>
                         <div>
-                            <label class="mb-1 block text-xs font-medium">Subtitle / location</label>
-                            <Input v-model="item.content!.subtitle" placeholder="Informasi tambahan" />
+                            <label class="mb-1 block text-xs font-medium"
+                                >Subtitle / location</label
+                            >
+                            <Input
+                                v-model="item.content!.subtitle"
+                                placeholder="Informasi tambahan"
+                            />
                         </div>
-                        <div v-if="!['flight-board', 'data-table', 'menu'].includes(item.template ?? '')" class="sm:col-span-2">
-                            <label class="mb-1 block text-xs font-medium">Data</label>
-                            <textarea v-model="item.content!.body" class="min-h-24 w-full rounded-md border bg-background px-3 py-2 text-sm" placeholder="Tulis konten template atau satu baris per data" />
-                            <p class="mt-1 text-xs text-muted-foreground">Konten awal template. Integrasi API dapat ditambahkan pada konfigurasi berikutnya.</p>
+                        <div
+                            v-if="
+                                ![
+                                    'flight-board',
+                                    'data-table',
+                                    'menu',
+                                ].includes(item.template ?? '')
+                            "
+                            class="sm:col-span-2"
+                        >
+                            <label class="mb-1 block text-xs font-medium"
+                                >Data</label
+                            >
+                            <textarea
+                                v-model="item.content!.body"
+                                class="min-h-24 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                                placeholder="Tulis konten template atau satu baris per data"
+                            />
+                            <p class="mt-1 text-xs text-muted-foreground">
+                                Konten awal template. Integrasi API dapat
+                                ditambahkan pada konfigurasi berikutnya.
+                            </p>
                         </div>
                         <div v-else class="sm:col-span-2">
-                            <label class="mb-1 block text-xs font-medium">Structured data</label>
-                            <textarea :value="structuredContentJson(item)" class="min-h-40 w-full rounded-md border bg-background px-3 py-2 font-mono text-xs" :placeholder="structuredPlaceholder(item)" @input="updateStructuredContent(item, $event)" />
-                            <p class="mt-1 text-xs text-muted-foreground">Data ini bisa diisi manual atau dipetakan dari API melalui mapping.</p>
+                            <label class="mb-1 block text-xs font-medium"
+                                >Structured data</label
+                            >
+                            <textarea
+                                :value="structuredContentJson(item)"
+                                class="min-h-40 w-full rounded-md border bg-background px-3 py-2 font-mono text-xs"
+                                :placeholder="structuredPlaceholder(item)"
+                                @input="updateStructuredContent(item, $event)"
+                            />
+                            <p class="mt-1 text-xs text-muted-foreground">
+                                Data ini bisa diisi manual atau dipetakan dari
+                                API melalui mapping.
+                            </p>
                         </div>
-                        <template v-if="item.template === 'custom' && item.template_definition">
-                            <div v-for="field in item.template_definition.schema" :key="field.name">
-                                <label class="mb-1 block text-xs font-medium">{{ field.label ?? field.name }}</label>
-                                <select v-if="field.type === 'image'" v-model="item.content![field.name]" class="h-9 w-full rounded-md border bg-background px-3 text-sm">
+                        <template
+                            v-if="
+                                item.template === 'custom' &&
+                                item.template_definition
+                            "
+                        >
+                            <div
+                                v-for="field in item.template_definition.schema"
+                                :key="field.name"
+                            >
+                                <label class="mb-1 block text-xs font-medium">{{
+                                    field.label ?? field.name
+                                }}</label>
+                                <select
+                                    v-if="field.type === 'image'"
+                                    v-model="item.content![field.name]"
+                                    class="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                                >
                                     <option value="">Pilih gambar</option>
-                                    <option v-for="asset in mediaAssets.filter((candidate) => candidate.type === 'image')" :key="asset.id" :value="asset.url">{{ asset.name }}</option>
+                                    <option
+                                        v-if="
+                                            isCustomImageValue(item, field.name)
+                                        "
+                                        :value="item.content![field.name]"
+                                    >
+                                        URL saat ini
+                                    </option>
+                                    <option
+                                        v-for="asset in mediaAssets.filter(
+                                            (candidate) =>
+                                                isImageMedia(candidate.type),
+                                        )"
+                                        :key="asset.id"
+                                        :value="asset.url"
+                                    >
+                                        {{ asset.name }}
+                                    </option>
                                 </select>
-                                <textarea v-if="field.type === 'textarea'" v-model="item.content![field.name]" class="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm" />
-                                <Input v-else-if="field.type !== 'image'" v-model="item.content![field.name]" :type="field.type === 'number' ? 'number' : 'text'" />
+                                <input
+                                    v-if="field.type === 'image'"
+                                    type="text"
+                                    class="mt-1 h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+                                    :value="
+                                        String(item.content?.[field.name] ?? '')
+                                    "
+                                    placeholder="atau tempel URL gambar"
+                                    @input="
+                                        setImageValue(item, field.name, $event)
+                                    "
+                                />
+                                <textarea
+                                    v-else-if="field.type === 'textarea'"
+                                    v-model="item.content![field.name]"
+                                    class="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                                />
+                                <textarea
+                                    v-else-if="field.type === 'json'"
+                                    :value="customFieldJson(item, field.name)"
+                                    class="min-h-48 w-full rounded-md border bg-background px-3 py-2 font-mono text-xs"
+                                    spellcheck="false"
+                                    @input="
+                                        updateCustomJsonField(
+                                            item,
+                                            field.name,
+                                            $event,
+                                        )
+                                    "
+                                />
+                                <Input
+                                    v-else
+                                    v-model="item.content![field.name]"
+                                    :type="
+                                        field.type === 'number'
+                                            ? 'number'
+                                            : 'text'
+                                    "
+                                />
                             </div>
                         </template>
-                        <div v-if="['custom', 'weather', 'flight-board', 'data-table', 'menu'].includes(item.template ?? '')" class="sm:col-span-2">
-                            <label class="mb-1 block text-xs font-medium">Data source</label>
-                            <select v-model="item.data_source!.mode" class="h-9 w-full rounded-md border bg-background px-3 text-sm">
+                        <div
+                            v-if="
+                                [
+                                    'custom',
+                                    'weather',
+                                    'flight-board',
+                                    'data-table',
+                                    'menu',
+                                ].includes(item.template ?? '')
+                            "
+                            class="sm:col-span-2"
+                        >
+                            <label class="mb-1 block text-xs font-medium"
+                                >Data source</label
+                            >
+                            <select
+                                v-model="item.data_source!.mode"
+                                class="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                            >
                                 <option value="static">Manual data</option>
                                 <option value="api">API endpoint</option>
                             </select>
-                            <div v-if="item.data_source?.mode === 'api'" class="mt-2 space-y-2">
-                                <select v-model="item.api_connection_id" class="h-9 w-full rounded-md border bg-background px-3 text-sm"><option value="">Pilih API connection</option><option v-for="connection in apiConnections" :key="connection.id" :value="connection.id">{{ connection.name }}</option></select>
-                                <Input v-model="item.data_source.url" :placeholder="item.template === 'weather' ? '/v1/forecast?latitude=-6.2&longitude=106.8&current=temperature_2m,relative_humidity_2m' : '/v1/queue'" />
+                            <div
+                                v-if="item.data_source?.mode === 'api'"
+                                class="mt-2 space-y-2"
+                            >
+                                <select
+                                    v-model="item.api_connection_id"
+                                    class="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                                >
+                                    <option value="">
+                                        Pilih API connection
+                                    </option>
+                                    <option
+                                        v-for="connection in apiConnections"
+                                        :key="connection.id"
+                                        :value="connection.id"
+                                    >
+                                        {{ connection.name }}
+                                    </option>
+                                </select>
+                                <Input
+                                    v-model="item.data_source.url"
+                                    :placeholder="
+                                        item.template === 'weather'
+                                            ? '/v1/forecast?latitude=-6.2&longitude=106.8&current=temperature_2m,relative_humidity_2m'
+                                            : '/v1/queue'
+                                    "
+                                />
                                 <div class="grid gap-2 sm:grid-cols-2">
-                                    <Input v-model="item.data_source.refresh_seconds" type="number" min="10" placeholder="Refresh seconds" />
-                                    <Input v-model="item.data_source.timeout_seconds" type="number" min="1" max="15" placeholder="Timeout" />
+                                    <Input
+                                        v-model="
+                                            item.data_source.refresh_seconds
+                                        "
+                                        type="number"
+                                        min="10"
+                                        placeholder="Refresh seconds"
+                                    />
+                                    <Input
+                                        v-model="
+                                            item.data_source.timeout_seconds
+                                        "
+                                        type="number"
+                                        min="1"
+                                        max="15"
+                                        placeholder="Timeout"
+                                    />
                                 </div>
                                 <div class="flex flex-wrap items-center gap-2">
-                                    <Button type="button" variant="outline" size="sm" @click="testApi(item)">Test API</Button>
-                                    <span class="self-center text-xs text-muted-foreground">{{ apiTestMessage }}</span>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        @click="testApi(item)"
+                                        ><FlaskConical class="size-4" />Test
+                                        API</Button
+                                    >
+                                    <span
+                                        class="self-center text-xs text-muted-foreground"
+                                        >{{ apiTestMessage }}</span
+                                    >
                                 </div>
-                                <textarea v-model="item.data_source.mapping_json" class="min-h-20 w-full rounded-md border bg-background px-3 py-2 font-mono text-xs" :placeholder="mappingPlaceholder(item)" />
-                                <pre v-if="apiTestData" class="max-h-32 overflow-auto rounded-md bg-zinc-950 p-2 text-[11px] text-emerald-300">{{ JSON.stringify(apiTestData, null, 2) }}</pre>
+                                <textarea
+                                    v-model="item.data_source.mapping_json"
+                                    class="min-h-20 w-full rounded-md border bg-background px-3 py-2 font-mono text-xs"
+                                    :placeholder="mappingPlaceholder(item)"
+                                />
+                                <pre
+                                    v-if="apiTestData"
+                                    class="max-h-32 overflow-auto rounded-md bg-zinc-950 p-2 text-[11px] text-emerald-300"
+                                    >{{
+                                        JSON.stringify(apiTestData, null, 2)
+                                    }}</pre>
                             </div>
-                            <p class="mt-1 text-xs text-muted-foreground">Gunakan endpoint relatif seperti <code>/v1/queue</code>. Credential dikelola di API Connections dan data manual tetap menjadi fallback.</p>
+                            <p class="mt-1 text-xs text-muted-foreground">
+                                Gunakan endpoint relatif seperti
+                                <code>/v1/queue</code>. Credential dikelola di
+                                API Connections dan data manual tetap menjadi
+                                fallback.
+                            </p>
                         </div>
                     </div>
                 </div>
             </section>
         </form>
+
+        <div
+            class="fixed inset-x-0 bottom-0 z-50 border-t bg-background/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(0,0,0,0.08)] backdrop-blur md:hidden"
+        >
+            <div class="mx-auto flex max-w-lg gap-2">
+                <Link
+                    href="/playlists"
+                    class="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md border bg-background px-3 text-sm font-medium hover:bg-accent"
+                >
+                    <ArrowLeft class="size-4" />
+                    {{ isEditing ? 'Back' : 'Cancel' }}
+                </Link>
+                <SubmitButton
+                    type="button"
+                    class="h-10 flex-1"
+                    :processing="form.processing"
+                    :label="isEditing ? 'Save changes' : 'Create'"
+                    loading-label="Menyimpan..."
+                    @click="submit"
+                >
+                    <Save class="size-4" />
+                </SubmitButton>
+            </div>
+        </div>
     </div>
 </template>

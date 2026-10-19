@@ -1,15 +1,27 @@
 <script setup lang="ts">
 import { useForm, usePage } from '@inertiajs/vue3';
-import { computed } from 'vue';
-import type { Tenancy } from '@/types';
+import { computed, watch } from 'vue';
+import type { Auth, Tenancy } from '@/types';
 
 const page = usePage();
 
 const tenancy = computed(() => page.props.tenancy as Tenancy);
+const isAppAdmin = computed(() =>
+    Boolean((page.props.auth as Auth | undefined)?.can_manage_platform),
+);
 
 const form = useForm({
     tenant_id: tenancy.value.current?.id ?? '',
 });
+
+watch(
+    () => tenancy.value.current?.id,
+    (currentId) => {
+        if (currentId) {
+            form.tenant_id = currentId;
+        }
+    },
+);
 
 function switchTenant(): void {
     if (!form.tenant_id || form.tenant_id === tenancy.value.current?.id) {
@@ -32,7 +44,7 @@ function switchTenant(): void {
         </label>
         <select
             v-model="form.tenant_id"
-            class="h-8 w-full rounded-md border border-sidebar-border bg-background px-2 text-sm text-foreground outline-none option:bg-background option:text-foreground"
+            class="option:bg-background option:text-foreground h-8 w-full rounded-md border border-sidebar-border bg-background px-2 text-sm text-foreground outline-none"
             :disabled="form.processing || tenancy.tenants.length <= 1"
             @change="switchTenant"
         >
@@ -41,8 +53,15 @@ function switchTenant(): void {
                 :key="tenant.id"
                 :value="tenant.id"
             >
-                {{ tenant.name }}
+                {{ tenant.name
+                }}{{ tenant.status === 'suspended' ? ' (suspended)' : '' }}
             </option>
         </select>
+        <p
+            v-if="isAppAdmin"
+            class="mt-1 text-[10px] leading-4 text-muted-foreground"
+        >
+            Admin aplikasi — bisa pindah ke tenant mana pun.
+        </p>
     </div>
 </template>

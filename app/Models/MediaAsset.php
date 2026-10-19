@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * @property string $id
@@ -32,11 +33,38 @@ class MediaAsset extends Model
 
     public const TYPE_IMAGE = 'image';
 
+    public const TYPE_IMAGE_URL = 'image_url';
+
     public const TYPE_VIDEO = 'video';
+
+    public const TYPE_VIDEO_URL = 'video_url';
 
     public const TYPE_AUDIO = 'audio';
 
     public const TYPE_WEB = 'web';
+
+    /**
+     * @var array<int, string>
+     */
+    public const TYPES = [
+        self::TYPE_IMAGE,
+        self::TYPE_IMAGE_URL,
+        self::TYPE_VIDEO,
+        self::TYPE_VIDEO_URL,
+        self::TYPE_AUDIO,
+        self::TYPE_WEB,
+    ];
+
+    /**
+     * Media types that reference content by URL instead of a stored file.
+     *
+     * @var array<int, string>
+     */
+    public const EXTERNAL_URL_TYPES = [
+        self::TYPE_IMAGE_URL,
+        self::TYPE_VIDEO_URL,
+        self::TYPE_WEB,
+    ];
 
     /**
      * Get the attributes that should be cast.
@@ -52,6 +80,34 @@ class MediaAsset extends Model
             'size' => 'integer',
             'width' => 'integer',
         ];
+    }
+
+    public function isImage(): bool
+    {
+        return in_array($this->type, [self::TYPE_IMAGE, self::TYPE_IMAGE_URL], true);
+    }
+
+    public function isVideo(): bool
+    {
+        return in_array($this->type, [self::TYPE_VIDEO, self::TYPE_VIDEO_URL], true);
+    }
+
+    public function usesExternalUrl(): bool
+    {
+        return in_array($this->type, self::EXTERNAL_URL_TYPES, true);
+    }
+
+    public function publicUrl(): string
+    {
+        if ($this->usesExternalUrl()) {
+            return $this->path;
+        }
+
+        if ($this->disk === 'public') {
+            return asset('storage/'.ltrim($this->path, '/'));
+        }
+
+        return Storage::disk($this->disk)->url($this->path);
     }
 
     public function tenant(): BelongsTo

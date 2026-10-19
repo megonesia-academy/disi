@@ -135,6 +135,30 @@ it('returns manifest with a valid player token', function (): void {
         ->assertJsonPath('playlist.items.0.media.name', 'Welcome');
 });
 
+it('serves external media urls directly in the manifest', function (string $type, string $url): void {
+    $device = createPlayableDevice();
+
+    $mediaAsset = MediaAsset::query()
+        ->where('tenant_id', $device->tenant_id)
+        ->sole();
+
+    $mediaAsset->update([
+        'type' => $type,
+        'path' => $url,
+    ]);
+
+    $this->getJson(route('api.player.manifest', [
+        'device' => $device->key,
+        'token' => $device->player_secret,
+    ]))
+        ->assertOk()
+        ->assertJsonPath('playlist.items.0.media.type', $type)
+        ->assertJsonPath('playlist.items.0.media.url', $url);
+})->with([
+    'image url' => [MediaAsset::TYPE_IMAGE_URL, 'https://cdn.example.com/poster.jpg'],
+    'video url' => [MediaAsset::TYPE_VIDEO_URL, 'https://cdn.example.com/promo.mp4'],
+]);
+
 it('renders the player screen with a valid player token', function (): void {
     $device = createPlayableDevice();
 

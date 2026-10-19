@@ -28,6 +28,9 @@ class CurrentTenant
                 'name' => "{$request->user()->name}'s Workspace",
                 'slug' => 'workspace-'.$request->user()->id.'-'.Str::lower(Str::random(6)),
                 'status' => Tenant::STATUS_ACTIVE,
+                'token_balance' => 100,
+                'subscription_status' => Tenant::SUBSCRIPTION_ACTIVE,
+                'subscription_renews_at' => now()->addMonth(),
             ]);
 
             $tenant->users()->attach($request->user()->id, [
@@ -49,7 +52,12 @@ class CurrentTenant
 
     public function switch(Request $request, Tenant $tenant): void
     {
-        abort_unless($request->user()?->tenants()->whereKey($tenant->id)->exists(), 404);
+        $user = $request->user();
+
+        abort_unless(
+            $user?->isAppAdmin() || $user?->tenants()->whereKey($tenant->id)->exists(),
+            404,
+        );
 
         $request->session()->put(self::SESSION_KEY, $tenant->id);
     }
@@ -61,6 +69,10 @@ class CurrentTenant
 
     public function role(Request $request, Tenant $tenant): ?string
     {
+        if ($request->user()?->isAppAdmin()) {
+            return self::ROLE_OWNER;
+        }
+
         $membership = $request->user()
             ?->tenants()
             ->whereKey($tenant->id)
@@ -93,6 +105,10 @@ class CurrentTenant
 
         if (! is_string($tenantId)) {
             return null;
+        }
+
+        if ($request->user()->isAppAdmin()) {
+            return Tenant::query()->find($tenantId);
         }
 
         return $request->user()

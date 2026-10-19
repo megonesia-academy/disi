@@ -87,6 +87,7 @@ class DashboardController extends Controller
                 'online_devices' => $onlineDeviceCount,
                 'media_assets' => $mediaAssetCount,
                 'playlists' => $playlistCount,
+                'active_schedules' => $activeScheduleCount,
             ],
             'setup' => [
                 [

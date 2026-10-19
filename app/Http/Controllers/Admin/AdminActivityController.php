@@ -1,31 +1,22 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
-use App\Support\CurrentTenant;
-use Illuminate\Http\Request;
+use App\Models\Tenant;
 use Inertia\Inertia;
 use Inertia\Response;
 
-class ActivityLogController extends Controller
+class AdminActivityController extends Controller
 {
-    public function __construct(private readonly CurrentTenant $currentTenant) {}
-
-    public function __invoke(Request $request): Response
+    public function __invoke(): Response
     {
-        $tenant = $this->currentTenant->resolve($request);
-
-        return Inertia::render('activity/Index', [
-            'tenant' => [
-                'id' => $tenant->id,
-                'name' => $tenant->name,
-            ],
+        return Inertia::render('admin/Activity', [
             'activities' => ActivityLog::query()
-                ->with('user:id,name,email')
-                ->where('tenant_id', $tenant->id)
+                ->with(['user:id,name,email', 'tenant:id,name,slug'])
                 ->latest()
-                ->limit(100)
+                ->limit(200)
                 ->get()
                 ->map(fn (ActivityLog $activity): array => [
                     'id' => $activity->id,
@@ -36,12 +27,24 @@ class ActivityLogController extends Controller
                     'ip_address' => $activity->ip_address,
                     'created_at' => $activity->created_at?->diffForHumans(),
                     'created_at_iso' => $activity->created_at?->toISOString(),
+                    'tenant' => $activity->tenant ? [
+                        'id' => $activity->tenant->id,
+                        'name' => $activity->tenant->name,
+                        'slug' => $activity->tenant->slug,
+                    ] : null,
                     'user' => $activity->user ? [
                         'id' => $activity->user->id,
                         'name' => $activity->user->name,
                         'email' => $activity->user->email,
                     ] : null,
                 ]),
+            'tenants' => Tenant::query()
+                ->orderBy('name')
+                ->get(['id', 'name']),
+            'events' => ActivityLog::query()
+                ->distinct()
+                ->orderBy('event')
+                ->pluck('event'),
         ]);
     }
 }

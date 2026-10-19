@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { type MediaAssetType } from '@/lib/media';
 import {
     computeMediaBox,
     initSignageCore,
@@ -10,7 +11,7 @@ import {
 type Media = {
     id: string;
     name: string;
-    type: 'image' | 'video' | 'audio' | 'web';
+    type: MediaAssetType;
     url: string | null;
     mime_type: string | null;
     duration_seconds: number | null;
@@ -22,7 +23,13 @@ type Media = {
 type TickerOverlay = {
     type: 'ticker';
     text: string;
-    position?: 'top' | 'bottom' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+    position?:
+        | 'top'
+        | 'bottom'
+        | 'top-left'
+        | 'top-right'
+        | 'bottom-left'
+        | 'bottom-right';
     speed?: number;
     text_color?: string;
     background_color?: string;
@@ -31,7 +38,13 @@ type TickerOverlay = {
     format?: '24h' | '12h';
     offset_x?: number;
     offset_y?: number;
-    weather?: { temperature?: unknown; humidity?: unknown; weather_code?: unknown; wind_speed?: unknown; location?: unknown };
+    weather?: {
+        temperature?: unknown;
+        humidity?: unknown;
+        weather_code?: unknown;
+        wind_speed?: unknown;
+        location?: unknown;
+    };
 };
 
 type PlaylistOverlay = {
@@ -49,7 +62,12 @@ type PlaylistItem = {
     template?: string;
     content?: Record<string, unknown>;
     template_id?: string | null;
-    template_definition?: { name: string; html: string; css: string | null; schema: Array<Record<string, unknown>> } | null;
+    template_definition?: {
+        name: string;
+        html: string;
+        css: string | null;
+        schema: Array<Record<string, unknown>>;
+    } | null;
     config: {
         fit?: MediaFit;
         overlays?: TickerOverlay[];
@@ -125,7 +143,8 @@ const activeItem = computed(() => {
 });
 
 const screenStyle = computed(() => {
-    const resolution = props.manifest?.screen.resolution ?? props.screen.resolution;
+    const resolution =
+        props.manifest?.screen.resolution ?? props.screen.resolution;
 
     return {
         aspectRatio: `${resolution.width} / ${resolution.height}`,
@@ -172,7 +191,9 @@ const clockOverlays = computed(() => {
 });
 
 const weatherOverlays = computed(() => {
-    return (props.manifest?.playlist.overlays ?? []).filter((overlay) => overlay.type === 'weather');
+    return (props.manifest?.playlist.overlays ?? []).filter(
+        (overlay) => overlay.type === 'weather',
+    );
 });
 
 function previewWeatherCondition(code: unknown): string {
@@ -185,12 +206,14 @@ function previewWeatherCondition(code: unknown): string {
 }
 
 function weatherOverlayPositionClass(position?: string): string {
-    return {
-        'top-left': 'top-4 left-4',
-        'top-right': 'top-4 right-4',
-        'bottom-left': 'bottom-4 left-4',
-        'bottom-right': 'bottom-4 right-4',
-    }[position ?? 'top-right'] ?? 'top-4 right-4';
+    return (
+        {
+            'top-left': 'top-4 left-4',
+            'top-right': 'top-4 right-4',
+            'bottom-left': 'bottom-4 left-4',
+            'bottom-right': 'bottom-4 right-4',
+        }[position ?? 'top-right'] ?? 'top-4 right-4'
+    );
 }
 
 function tickerText(overlay: TickerOverlay): string {
@@ -215,12 +238,14 @@ function tickerAnimationStyle(overlay: TickerOverlay): Record<string, string> {
 }
 
 function clockPositionClass(position?: string): string {
-    return {
-        'top-left': 'top-4 left-4',
-        'top-right': 'top-4 right-4',
-        'bottom-left': 'bottom-4 left-4',
-        'bottom-right': 'bottom-4 right-4',
-    }[position ?? 'top-right'] ?? 'top-4 right-4';
+    return (
+        {
+            'top-left': 'top-4 left-4',
+            'top-right': 'top-4 right-4',
+            'bottom-left': 'bottom-4 left-4',
+            'bottom-right': 'bottom-4 right-4',
+        }[position ?? 'top-right'] ?? 'top-4 right-4'
+    );
 }
 
 function overlayOffsetStyle(overlay: TickerOverlay): Record<string, string> {
@@ -240,7 +265,8 @@ function overlayOffsetStyle(overlay: TickerOverlay): Record<string, string> {
 const mediaBoxStyle = computed(() => {
     wasmRevision.value;
 
-    const resolution = props.manifest?.screen.resolution ?? props.screen.resolution;
+    const resolution =
+        props.manifest?.screen.resolution ?? props.screen.resolution;
     const item = activeItem.value;
 
     if (!item || !item.media) {
@@ -280,7 +306,10 @@ const logoPositionClass = computed(() => {
         'bottom-right': 'right-4 bottom-4',
     };
 
-    return positions[props.manifest?.branding.logo_position ?? 'top-right'] ?? positions['top-right'];
+    return (
+        positions[props.manifest?.branding.logo_position ?? 'top-right'] ??
+        positions['top-right']
+    );
 });
 
 const logoStyle = computed(() => {
@@ -298,8 +327,10 @@ const logoStyle = computed(() => {
     if (position.includes('top')) style.top = `calc(1rem + ${offsetY}px)`;
     if (position.includes('bottom')) style.bottom = `calc(1rem - ${offsetY}px)`;
     if (position.includes('center') || position === 'center') {
-        if (!position.includes('left') && !position.includes('right')) style.marginLeft = `${offsetX}px`;
-        if (!position.includes('top') && !position.includes('bottom')) style.marginTop = `${offsetY}px`;
+        if (!position.includes('left') && !position.includes('right'))
+            style.marginLeft = `${offsetX}px`;
+        if (!position.includes('top') && !position.includes('bottom'))
+            style.marginTop = `${offsetY}px`;
     }
 
     return style;
@@ -372,26 +403,37 @@ function onMediaError(): void {
 }
 
 function templateTitle(item: PlaylistItem): string {
-    return String(item.content?.title ?? {
-        announcement: 'Announcement',
-        'data-table': 'Data table',
-        'patient-queue': 'Patient queue',
-        'flight-board': 'Flight board',
-        menu: 'Menu',
-        weather: 'Weather',
-    }[item.template ?? ''] ?? 'Content');
+    return String(
+        item.content?.title ??
+            {
+                announcement: 'Announcement',
+                'data-table': 'Data table',
+                'patient-queue': 'Patient queue',
+                'flight-board': 'Flight board',
+                menu: 'Menu',
+                weather: 'Weather',
+            }[item.template ?? ''] ??
+            'Content',
+    );
 }
 
 function templateRows(item: PlaylistItem): string[] {
     const body = item.content?.body;
     return Array.isArray(body)
         ? body.map((value) => String(value))
-        : String(body ?? '').split('\n').map((row) => row.trim()).filter(Boolean);
+        : String(body ?? '')
+              .split('\n')
+              .map((row) => row.trim())
+              .filter(Boolean);
 }
 
 function objectRows(item: PlaylistItem): Array<Record<string, unknown>> {
     const rows = item.content?.rows;
-    return Array.isArray(rows) ? rows.filter((row): row is Record<string, unknown> => Boolean(row && typeof row === 'object' && !Array.isArray(row))) : [];
+    return Array.isArray(rows)
+        ? rows.filter((row): row is Record<string, unknown> =>
+              Boolean(row && typeof row === 'object' && !Array.isArray(row)),
+          )
+        : [];
 }
 
 function tableColumns(item: PlaylistItem): string[] {
@@ -405,39 +447,77 @@ function tableValues(item: PlaylistItem): Array<Array<string>> {
     const rows = item.content?.rows;
     if (!Array.isArray(rows)) return [];
     const columns = tableColumns(item);
-    return rows.map((row) => Array.isArray(row) ? row.map((value) => String(value ?? '')) : columns.map((column) => String((row as Record<string, unknown>)[column] ?? '')));
+    return rows.map((row) =>
+        Array.isArray(row)
+            ? row.map((value) => String(value ?? ''))
+            : columns.map((column) =>
+                  String((row as Record<string, unknown>)[column] ?? ''),
+              ),
+    );
 }
 
 function menuItems(item: PlaylistItem): Array<Record<string, unknown>> {
     const items = item.content?.items;
-    return Array.isArray(items) ? items.filter((entry): entry is Record<string, unknown> => Boolean(entry && typeof entry === 'object' && !Array.isArray(entry))) : [];
+    return Array.isArray(items)
+        ? items.filter((entry): entry is Record<string, unknown> =>
+              Boolean(
+                  entry && typeof entry === 'object' && !Array.isArray(entry),
+              ),
+          )
+        : [];
 }
 
 function renderCustomTemplate(item: PlaylistItem): string {
     const html = item.template_definition?.html ?? '';
     const data = item.content ?? {};
-    const escaped = (value: unknown): string => String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[character] ?? character);
+    const escaped = (value: unknown): string =>
+        String(value ?? '').replace(
+            /[&<>"']/g,
+            (character) =>
+                ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#039;',
+                })[character] ?? character,
+        );
     const valueAtPath = (source: unknown, path: string): unknown => {
         if (path === 'this') return source;
 
-        return path.split('.').reduce<unknown>((value, segment) => (
-            value && typeof value === 'object' && segment in value
-                ? (value as Record<string, unknown>)[segment]
-                : undefined
-        ), source);
+        return path
+            .split('.')
+            .reduce<unknown>(
+                (value, segment) =>
+                    value && typeof value === 'object' && segment in value
+                        ? (value as Record<string, unknown>)[segment]
+                        : undefined,
+                source,
+            );
     };
-    const replaceFields = (markup: string, source: unknown): string => markup.replace(/{{\s*(?:this\.)?([\w.-]+)\s*}}/g, (_match, key: string) => escaped(valueAtPath(source, key)));
-    const renderedHtml = html.replace(/{{#each\s+([\w.-]+)}}([\s\S]*?){{\/each}}/g, (_match, path: string, block: string) => {
-        const rows = valueAtPath(data, path);
+    const replaceFields = (markup: string, source: unknown): string =>
+        markup.replace(
+            /{{\s*(?:this\.)?([\w.-]+)\s*}}/g,
+            (_match, key: string) => escaped(valueAtPath(source, key)),
+        );
+    const renderedHtml = html.replace(
+        /{{#each\s+([\w.-]+)}}([\s\S]*?){{\/each}}/g,
+        (_match, path: string, block: string) => {
+            const rows = valueAtPath(data, path);
 
-        return Array.isArray(rows) ? rows.map((row) => replaceFields(block, row)).join('') : '';
-    });
+            return Array.isArray(rows)
+                ? rows.map((row) => replaceFields(block, row)).join('')
+                : '';
+        },
+    );
 
     return `<style>${item.template_definition?.css ?? ''}</style>${renderedHtml}`
         .replace(/<script[\s\S]*?<\/script>/gi, '')
         .replace(/\son\w+\s*=\s*(['"]).*?\1/gi, '')
         .replace(/javascript:/gi, '')
-        .replace(/{{\s*([\w.-]+)\s*}}/g, (_match, key: string) => escaped(valueAtPath(data, key)));
+        .replace(/{{\s*([\w.-]+)\s*}}/g, (_match, key: string) =>
+            escaped(valueAtPath(data, key)),
+        );
 }
 
 onMounted(() => {
@@ -466,7 +546,7 @@ onBeforeUnmount(() => {
     <Head :title="`Preview ${screen.name}`" />
 
     <div
-        class="flex h-full flex-1 flex-col gap-6 overflow-x-auto bg-muted/20 p-4 md:p-6"
+        class="flex h-full flex-1 flex-col gap-6 overflow-x-auto bg-workspace p-4 md:p-6"
     >
         <section
             class="flex flex-wrap items-end justify-between gap-4 rounded-lg border bg-background p-5 shadow-sm"
@@ -542,39 +622,258 @@ onBeforeUnmount(() => {
 
                         <template v-else>
                             <Transition :name="transitionName" mode="out-in">
-                                <div :key="activeItem.id" class="absolute inset-0">
+                                <div
+                                    :key="activeItem.id"
+                                    class="absolute inset-0"
+                                >
                                     <div
                                         v-if="activeItem.template === 'custom'"
                                         class="h-full w-full overflow-hidden bg-zinc-950 text-white"
                                     >
-                                        <div v-html="renderCustomTemplate(activeItem)" />
-                                    </div>
-                                    <div v-else-if="activeItem.template === 'flight-board'" class="flex h-full w-full flex-col bg-slate-950 px-[5%] py-[4%] text-white">
-                                        <div class="border-b border-cyan-400/30 pb-4"><div class="text-xs uppercase tracking-[0.25em] text-cyan-300">Flight information</div><div class="mt-2 text-4xl font-semibold">{{ templateTitle(activeItem) }}</div></div>
-                                        <div class="mt-4 grid grid-cols-[1.1fr_1.5fr_0.8fr_0.7fr_1fr] gap-2 px-3 pb-2 text-xs uppercase text-slate-400"><span>Flight</span><span>Destination</span><span>Time</span><span>Gate</span><span>Status</span></div>
-                                        <div class="space-y-1 overflow-hidden text-sm"><div v-for="(row, rowIndex) in objectRows(activeItem)" :key="rowIndex" class="grid grid-cols-[1.1fr_1.5fr_0.8fr_0.7fr_1fr] gap-2 rounded bg-white/[0.06] px-3 py-3"><span class="font-semibold text-cyan-200">{{ row.flight ?? row.number ?? '-' }}</span><span>{{ row.destination ?? '-' }}</span><span>{{ row.time ?? '-' }}</span><span>{{ row.gate ?? '-' }}</span><span class="text-emerald-300">{{ row.status ?? '-' }}</span></div></div>
-                                    </div>
-                                    <div v-else-if="activeItem.template === 'data-table'" class="flex h-full w-full flex-col bg-zinc-950 px-[5%] py-[5%] text-white">
-                                        <div class="border-b border-white/15 pb-4"><div class="text-xs uppercase tracking-[0.25em] text-cyan-300">Live data</div><div class="mt-2 text-4xl font-semibold">{{ templateTitle(activeItem) }}</div></div>
-                                        <div class="mt-5 overflow-hidden rounded border border-white/15"><div class="grid gap-2 bg-white/10 px-3 py-3 text-sm font-semibold" :style="{ gridTemplateColumns: `repeat(${Math.max(tableColumns(activeItem).length, 1)}, minmax(0, 1fr))` }"><span v-for="column in tableColumns(activeItem)" :key="column">{{ column }}</span></div><div v-for="(row, rowIndex) in tableValues(activeItem)" :key="rowIndex" class="grid gap-2 border-t border-white/10 px-3 py-3 text-sm" :style="{ gridTemplateColumns: `repeat(${Math.max(tableColumns(activeItem).length, 1)}, minmax(0, 1fr))` }"><span v-for="(value, valueIndex) in row" :key="valueIndex">{{ value }}</span></div></div>
-                                    </div>
-                                    <div v-else-if="activeItem.template === 'menu'" class="flex h-full w-full flex-col bg-stone-950 px-[6%] py-[5%] text-white">
-                                        <div class="text-center"><div class="text-xs uppercase tracking-[0.3em] text-amber-300">Menu</div><div class="mt-2 text-4xl font-semibold">{{ templateTitle(activeItem) }}</div></div>
-                                        <div class="mt-5 grid flex-1 grid-cols-2 gap-3 overflow-hidden"><div v-for="(menuItem, menuIndex) in menuItems(activeItem)" :key="menuIndex" class="overflow-hidden rounded border border-white/10 bg-white/[0.08]"><img v-if="menuItem.image" :src="String(menuItem.image)" :alt="String(menuItem.name ?? '')" class="h-20 w-full object-cover" /><div class="p-3"><div class="flex justify-between gap-2 text-sm font-semibold"><span>{{ menuItem.name ?? '-' }}</span><span class="text-amber-300">{{ menuItem.price ?? '' }}</span></div><div class="mt-1 text-xs text-stone-300">{{ menuItem.description ?? '' }}</div></div></div></div>
+                                        <div
+                                            v-html="
+                                                renderCustomTemplate(activeItem)
+                                            "
+                                        />
                                     </div>
                                     <div
-                                        v-else-if="(activeItem.template ?? 'media') !== 'media'"
+                                        v-else-if="
+                                            activeItem.template ===
+                                            'flight-board'
+                                        "
+                                        class="flex h-full w-full flex-col bg-slate-950 px-[5%] py-[4%] text-white"
+                                    >
+                                        <div
+                                            class="border-b border-cyan-400/30 pb-4"
+                                        >
+                                            <div
+                                                class="text-xs tracking-[0.25em] text-cyan-300 uppercase"
+                                            >
+                                                Flight information
+                                            </div>
+                                            <div
+                                                class="mt-2 text-4xl font-semibold"
+                                            >
+                                                {{ templateTitle(activeItem) }}
+                                            </div>
+                                        </div>
+                                        <div
+                                            class="mt-4 grid grid-cols-[1.1fr_1.5fr_0.8fr_0.7fr_1fr] gap-2 px-3 pb-2 text-xs text-slate-400 uppercase"
+                                        >
+                                            <span>Flight</span
+                                            ><span>Destination</span
+                                            ><span>Time</span><span>Gate</span
+                                            ><span>Status</span>
+                                        </div>
+                                        <div
+                                            class="space-y-1 overflow-hidden text-sm"
+                                        >
+                                            <div
+                                                v-for="(
+                                                    row, rowIndex
+                                                ) in objectRows(activeItem)"
+                                                :key="rowIndex"
+                                                class="grid grid-cols-[1.1fr_1.5fr_0.8fr_0.7fr_1fr] gap-2 rounded bg-white/[0.06] px-3 py-3"
+                                            >
+                                                <span
+                                                    class="font-semibold text-cyan-200"
+                                                    >{{
+                                                        row.flight ??
+                                                        row.number ??
+                                                        '-'
+                                                    }}</span
+                                                ><span>{{
+                                                    row.destination ?? '-'
+                                                }}</span
+                                                ><span>{{
+                                                    row.time ?? '-'
+                                                }}</span
+                                                ><span>{{
+                                                    row.gate ?? '-'
+                                                }}</span
+                                                ><span
+                                                    class="text-emerald-300"
+                                                    >{{
+                                                        row.status ?? '-'
+                                                    }}</span
+                                                >
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div
+                                        v-else-if="
+                                            activeItem.template === 'data-table'
+                                        "
+                                        class="flex h-full w-full flex-col bg-zinc-950 px-[5%] py-[5%] text-white"
+                                    >
+                                        <div
+                                            class="border-b border-white/15 pb-4"
+                                        >
+                                            <div
+                                                class="text-xs tracking-[0.25em] text-cyan-300 uppercase"
+                                            >
+                                                Live data
+                                            </div>
+                                            <div
+                                                class="mt-2 text-4xl font-semibold"
+                                            >
+                                                {{ templateTitle(activeItem) }}
+                                            </div>
+                                        </div>
+                                        <div
+                                            class="mt-5 overflow-hidden rounded border border-white/15"
+                                        >
+                                            <div
+                                                class="grid gap-2 bg-white/10 px-3 py-3 text-sm font-semibold"
+                                                :style="{
+                                                    gridTemplateColumns: `repeat(${Math.max(tableColumns(activeItem).length, 1)}, minmax(0, 1fr))`,
+                                                }"
+                                            >
+                                                <span
+                                                    v-for="column in tableColumns(
+                                                        activeItem,
+                                                    )"
+                                                    :key="column"
+                                                    >{{ column }}</span
+                                                >
+                                            </div>
+                                            <div
+                                                v-for="(
+                                                    row, rowIndex
+                                                ) in tableValues(activeItem)"
+                                                :key="rowIndex"
+                                                class="grid gap-2 border-t border-white/10 px-3 py-3 text-sm"
+                                                :style="{
+                                                    gridTemplateColumns: `repeat(${Math.max(tableColumns(activeItem).length, 1)}, minmax(0, 1fr))`,
+                                                }"
+                                            >
+                                                <span
+                                                    v-for="(
+                                                        value, valueIndex
+                                                    ) in row"
+                                                    :key="valueIndex"
+                                                    >{{ value }}</span
+                                                >
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div
+                                        v-else-if="
+                                            activeItem.template === 'menu'
+                                        "
+                                        class="flex h-full w-full flex-col bg-stone-950 px-[6%] py-[5%] text-white"
+                                    >
+                                        <div class="text-center">
+                                            <div
+                                                class="text-xs tracking-[0.3em] text-amber-300 uppercase"
+                                            >
+                                                Menu
+                                            </div>
+                                            <div
+                                                class="mt-2 text-4xl font-semibold"
+                                            >
+                                                {{ templateTitle(activeItem) }}
+                                            </div>
+                                        </div>
+                                        <div
+                                            class="mt-5 grid flex-1 grid-cols-2 gap-3 overflow-hidden"
+                                        >
+                                            <div
+                                                v-for="(
+                                                    menuItem, menuIndex
+                                                ) in menuItems(activeItem)"
+                                                :key="menuIndex"
+                                                class="overflow-hidden rounded border border-white/10 bg-white/[0.08]"
+                                            >
+                                                <img
+                                                    v-if="menuItem.image"
+                                                    :src="
+                                                        String(menuItem.image)
+                                                    "
+                                                    :alt="
+                                                        String(
+                                                            menuItem.name ?? '',
+                                                        )
+                                                    "
+                                                    class="h-20 w-full object-cover"
+                                                />
+                                                <div class="p-3">
+                                                    <div
+                                                        class="flex justify-between gap-2 text-sm font-semibold"
+                                                    >
+                                                        <span>{{
+                                                            menuItem.name ?? '-'
+                                                        }}</span
+                                                        ><span
+                                                            class="text-amber-300"
+                                                            >{{
+                                                                menuItem.price ??
+                                                                ''
+                                                            }}</span
+                                                        >
+                                                    </div>
+                                                    <div
+                                                        class="mt-1 text-xs text-stone-300"
+                                                    >
+                                                        {{
+                                                            menuItem.description ??
+                                                            ''
+                                                        }}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div
+                                        v-else-if="
+                                            (activeItem.template ?? 'media') !==
+                                            'media'
+                                        "
                                         class="flex h-full w-full flex-col justify-center bg-zinc-950 px-[8%] py-[6%] text-white"
                                     >
-                                        <div class="text-5xl font-bold tracking-tight">{{ templateTitle(activeItem) }}</div>
-                                        <div v-if="activeItem.content?.subtitle" class="mt-3 text-2xl text-zinc-300">{{ activeItem.content.subtitle }}</div>
-                                        <div v-if="activeItem.template === 'announcement'" class="mt-10 max-w-5xl whitespace-pre-line text-4xl leading-tight">{{ activeItem.content?.body }}</div>
-                                        <div v-else class="mt-10 grid gap-3 text-2xl">
-                                            <div v-for="(row, rowIndex) in templateRows(activeItem)" :key="rowIndex" class="rounded-lg border border-white/15 bg-white/10 px-5 py-4">{{ row }}</div>
+                                        <div
+                                            class="text-5xl font-bold tracking-tight"
+                                        >
+                                            {{ templateTitle(activeItem) }}
+                                        </div>
+                                        <div
+                                            v-if="activeItem.content?.subtitle"
+                                            class="mt-3 text-2xl text-zinc-300"
+                                        >
+                                            {{ activeItem.content.subtitle }}
+                                        </div>
+                                        <div
+                                            v-if="
+                                                activeItem.template ===
+                                                'announcement'
+                                            "
+                                            class="mt-10 max-w-5xl text-4xl leading-tight whitespace-pre-line"
+                                        >
+                                            {{ activeItem.content?.body }}
+                                        </div>
+                                        <div
+                                            v-else
+                                            class="mt-10 grid gap-3 text-2xl"
+                                        >
+                                            <div
+                                                v-for="(
+                                                    row, rowIndex
+                                                ) in templateRows(activeItem)"
+                                                :key="rowIndex"
+                                                class="rounded-lg border border-white/15 bg-white/10 px-5 py-4"
+                                            >
+                                                {{ row }}
+                                            </div>
                                         </div>
                                     </div>
                                     <img
-                                        v-else-if="activeItem.media?.type === 'image' && activeItem.media.url"
+                                        v-else-if="
+                                            (activeItem.media?.type ===
+                                                'image' ||
+                                                activeItem.media?.type ===
+                                                    'image_url') &&
+                                            activeItem.media.url
+                                        "
                                         :src="activeItem.media.url"
                                         :alt="activeItem.media.name"
                                         class="absolute"
@@ -584,7 +883,13 @@ onBeforeUnmount(() => {
                                     />
 
                                     <video
-                                        v-else-if="activeItem.media?.type === 'video' && activeItem.media.url"
+                                        v-else-if="
+                                            (activeItem.media?.type ===
+                                                'video' ||
+                                                activeItem.media?.type ===
+                                                    'video_url') &&
+                                            activeItem.media.url
+                                        "
                                         :src="activeItem.media.url"
                                         class="absolute"
                                         :class="mediaFitClass"
@@ -596,7 +901,10 @@ onBeforeUnmount(() => {
                                         @error="onMediaError"
                                     />
                                     <audio
-                                        v-else-if="activeItem.media?.type === 'audio' && activeItem.media.url"
+                                        v-else-if="
+                                            activeItem.media?.type ===
+                                                'audio' && activeItem.media.url
+                                        "
                                         :src="activeItem.media.url"
                                         class="absolute bottom-6 left-1/2 w-3/4 -translate-x-1/2"
                                         controls
@@ -616,7 +924,11 @@ onBeforeUnmount(() => {
                                 v-for="overlay in tickerOverlays"
                                 :key="`ticker-${overlay.text}`"
                                 class="pointer-events-none absolute right-0 left-0 z-20 overflow-hidden px-4 py-3 text-lg font-medium"
-                                :class="overlay.position === 'top' ? 'top-0' : 'bottom-0'"
+                                :class="
+                                    overlay.position === 'top'
+                                        ? 'top-0'
+                                        : 'bottom-0'
+                                "
                                 :style="tickerStyle(overlay)"
                             >
                                 <div
@@ -631,30 +943,99 @@ onBeforeUnmount(() => {
                                 v-for="overlay in clockOverlays"
                                 :key="`clock-${overlay.id}`"
                                 class="pointer-events-none absolute z-20 rounded-md px-3 py-2 text-xl font-semibold tabular-nums"
-                                :class="clockPositionClass(overlay.config.position)"
-                                :style="{ ...tickerStyle(overlay.config), ...overlayOffsetStyle(overlay.config) }"
+                                :class="
+                                    clockPositionClass(overlay.config.position)
+                                "
+                                :style="{
+                                    ...tickerStyle(overlay.config),
+                                    ...overlayOffsetStyle(overlay.config),
+                                }"
                             >
-                                {{ currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: overlay.config.format === '12h' }) }}
+                                {{
+                                    currentTime.toLocaleTimeString([], {
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                        second: '2-digit',
+                                        hour12: overlay.config.format === '12h',
+                                    })
+                                }}
                             </div>
 
                             <div
                                 v-for="overlay in weatherOverlays"
                                 :key="`weather-${overlay.id}`"
                                 class="pointer-events-none absolute z-30 min-w-56 rounded-lg border border-white/15 bg-slate-950/85 px-4 py-3 text-white shadow-xl backdrop-blur-sm"
-                                :class="weatherOverlayPositionClass(overlay.config.position)"
-                                :style="{ ...tickerStyle(overlay.config), ...overlayOffsetStyle(overlay.config) }"
+                                :class="
+                                    weatherOverlayPositionClass(
+                                        overlay.config.position,
+                                    )
+                                "
+                                :style="{
+                                    ...tickerStyle(overlay.config),
+                                    ...overlayOffsetStyle(overlay.config),
+                                }"
                             >
-                                <div class="flex items-center justify-between gap-5">
+                                <div
+                                    class="flex items-center justify-between gap-5"
+                                >
                                     <div>
-                                        <div class="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-300">Weather</div>
-                                        <div class="mt-1 text-sm font-medium text-white/75">{{ String(overlay.config.weather?.location ?? 'Weather') }}</div>
+                                        <div
+                                            class="text-[10px] font-semibold tracking-[0.2em] text-cyan-300 uppercase"
+                                        >
+                                            Weather
+                                        </div>
+                                        <div
+                                            class="mt-1 text-sm font-medium text-white/75"
+                                        >
+                                            {{
+                                                String(
+                                                    overlay.config.weather
+                                                        ?.location ?? 'Weather',
+                                                )
+                                            }}
+                                        </div>
                                     </div>
-                                    <div class="text-3xl font-semibold leading-none">{{ overlay.config.weather?.temperature ?? '-' }} °C</div>
+                                    <div
+                                        class="text-3xl leading-none font-semibold"
+                                    >
+                                        {{
+                                            overlay.config.weather
+                                                ?.temperature ?? '-'
+                                        }}
+                                        °C
+                                    </div>
                                 </div>
-                                <div class="mt-3 flex items-center gap-3 border-t border-white/10 pt-2 text-xs text-white/70">
-                                    <span>{{ previewWeatherCondition(overlay.config.weather?.weather_code) }}</span>
-                                    <span>Humidity {{ overlay.config.weather?.humidity ?? '-' }}%</span>
-                                    <span v-if="overlay.config.weather?.wind_speed !== null && overlay.config.weather?.wind_speed !== undefined && overlay.config.weather?.wind_speed !== ''">Wind {{ overlay.config.weather.wind_speed }} km/h</span>
+                                <div
+                                    class="mt-3 flex items-center gap-3 border-t border-white/10 pt-2 text-xs text-white/70"
+                                >
+                                    <span>{{
+                                        previewWeatherCondition(
+                                            overlay.config.weather
+                                                ?.weather_code,
+                                        )
+                                    }}</span>
+                                    <span
+                                        >Humidity
+                                        {{
+                                            overlay.config.weather?.humidity ??
+                                            '-'
+                                        }}%</span
+                                    >
+                                    <span
+                                        v-if="
+                                            overlay.config.weather
+                                                ?.wind_speed !== null &&
+                                            overlay.config.weather
+                                                ?.wind_speed !== undefined &&
+                                            overlay.config.weather
+                                                ?.wind_speed !== ''
+                                        "
+                                        >Wind
+                                        {{
+                                            overlay.config.weather.wind_speed
+                                        }}
+                                        km/h</span
+                                    >
                                 </div>
                             </div>
 
@@ -690,7 +1071,9 @@ onBeforeUnmount(() => {
                                 v-if="shouldShowOverlay"
                                 class="pointer-events-none absolute right-4 bottom-4 rounded border border-white/10 bg-black/60 px-3 py-2 text-right text-xs text-white/80 shadow-lg"
                             >
-                                <div class="flex items-center justify-end gap-2">
+                                <div
+                                    class="flex items-center justify-end gap-2"
+                                >
                                     <span>{{ brandLabel }}</span>
                                 </div>
                                 <div class="text-white/55">
@@ -760,11 +1143,20 @@ onBeforeUnmount(() => {
                             </div>
                             <div class="min-w-0">
                                 <div class="truncate font-medium">
-                                    {{ item.media?.name ?? item.template ?? 'content' }}
+                                    {{
+                                        item.media?.name ??
+                                        item.template ??
+                                        'content'
+                                    }}
                                 </div>
                                 <div class="text-xs text-muted-foreground">
-                                    {{ item.template && item.template !== 'media' ? item.template : item.media?.type }} ·
-                                    {{ item.duration_seconds }}s
+                                    {{
+                                        item.template &&
+                                        item.template !== 'media'
+                                            ? item.template
+                                            : item.media?.type
+                                    }}
+                                    · {{ item.duration_seconds }}s
                                 </div>
                             </div>
                         </li>
@@ -799,7 +1191,9 @@ onBeforeUnmount(() => {
 .slide-down-leave-active,
 .zoom-enter-active,
 .zoom-leave-active {
-    transition: transform 700ms ease, opacity 700ms ease;
+    transition:
+        transform 700ms ease,
+        opacity 700ms ease;
 }
 
 .slide-left-enter-from {

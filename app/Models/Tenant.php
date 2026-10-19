@@ -15,11 +15,14 @@ use Illuminate\Support\Carbon;
  * @property string $slug
  * @property string|null $billing_email
  * @property string $status
+ * @property int $token_balance
+ * @property string $subscription_status
+ * @property Carbon|null $subscription_renews_at
  * @property array<string, mixed>|null $settings
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['name', 'slug', 'billing_email', 'status', 'settings'])]
+#[Fillable(['name', 'slug', 'billing_email', 'status', 'settings', 'token_balance', 'subscription_status', 'subscription_renews_at'])]
 class Tenant extends Model
 {
     use HasUuids;
@@ -27,6 +30,12 @@ class Tenant extends Model
     public const STATUS_ACTIVE = 'active';
 
     public const STATUS_SUSPENDED = 'suspended';
+
+    public const SUBSCRIPTION_ACTIVE = 'active';
+
+    public const SUBSCRIPTION_PAST_DUE = 'past_due';
+
+    public const SUBSCRIPTION_CANCELED = 'canceled';
 
     /**
      * Get the attributes that should be cast.
@@ -37,7 +46,14 @@ class Tenant extends Model
     {
         return [
             'settings' => 'array',
+            'subscription_renews_at' => 'datetime',
+            'token_balance' => 'integer',
         ];
+    }
+
+    public function hasActiveSubscription(): bool
+    {
+        return $this->subscription_status === self::SUBSCRIPTION_ACTIVE;
     }
 
     public function users(): BelongsToMany
@@ -75,5 +91,20 @@ class Tenant extends Model
     public function schedules(): HasMany
     {
         return $this->hasMany(Schedule::class);
+    }
+
+    public function tokenTransactions(): HasMany
+    {
+        return $this->hasMany(TokenTransaction::class);
+    }
+
+    public function entitlements(): HasMany
+    {
+        return $this->hasMany(TenantEntitlement::class);
+    }
+
+    public function topupRequests(): HasMany
+    {
+        return $this->hasMany(TokenTopupRequest::class);
     }
 }

@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\InsufficientTokensException;
+use App\Exceptions\SubscriptionInactiveException;
 use App\Models\ApiConnection;
 use App\Models\ContentTemplate;
 use App\Models\MediaAsset;
@@ -9,6 +11,8 @@ use App\Models\Playlist;
 use App\Models\PlaylistItem;
 use App\Models\PlaylistOverlay;
 use App\Models\Tenant;
+use App\Models\TokenTransaction;
+use App\Services\TenantBilling;
 use App\Support\ActivityLogger;
 use App\Support\CurrentTenant;
 use Illuminate\Http\JsonResponse;
@@ -19,6 +23,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Exists;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -27,6 +32,7 @@ class PlaylistController extends Controller
     public function __construct(
         private readonly CurrentTenant $currentTenant,
         private readonly ActivityLogger $activityLogger,
+        private readonly TenantBilling $billing,
     ) {}
 
     /**
@@ -36,69 +42,63 @@ class PlaylistController extends Controller
     {
         $tenant = $this->currentTenant->resolve($request);
 
+        $playlists = Playlist::query()
+            ->with(['items.mediaAsset', 'items.contentTemplate', 'items.apiConnection', 'overlays'])
+            ->withCount('schedules')
+            ->where('tenant_id', $tenant->id)
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Playlist $playlist): array => [
+                'id' => $playlist->id,
+                'name' => $playlist->name,
+                'description' => $playlist->description,
+                'is_active' => $playlist->is_active,
+                'status' => $playlist->status,
+                'schedules_count' => $playlist->schedules_count,
+                'updated_at' => $playlist->updated_at?->diffForHumans(),
+                'updated_at_iso' => $playlist->updated_at?->toIso8601String(),
+                'overlays' => $playlist->overlays->map(fn (PlaylistOverlay $overlay): array => [
+                    'id' => $overlay->id,
+                    'type' => $overlay->type,
+                    'config' => $overlay->config,
+                    'sort_order' => $overlay->sort_order,
+                    'is_active' => $overlay->is_active,
+                ])->values(),
+                'items' => $playlist->items->map(fn (PlaylistItem $item): array => [
+                    'id' => $item->id,
+                    'media_asset_id' => $item->media_asset_id,
+                    'template' => $item->template,
+                    'template_id' => $item->template_id,
+                    'api_connection_id' => $item->api_connection_id,
+                    'template_definition' => $item->contentTemplate ? [
+                        'id' => $item->contentTemplate->id,
+                        'name' => $item->contentTemplate->name,
+                        'html' => $item->contentTemplate->html,
+                        'css' => $item->contentTemplate->css,
+                        'schema' => $item->contentTemplate->schema,
+                    ] : null,
+                    'content' => $item->content,
+                    'data_source' => $this->dataSourceForEditor($item->data_source),
+                    'sort_order' => $item->sort_order,
+                    'duration_seconds' => $item->duration_seconds,
+                    'transition' => $item->transition,
+                    'config' => $item->config ?? ['fit' => 'cover'],
+                    'media' => [
+                        'id' => $item->mediaAsset?->id,
+                        'name' => $item->mediaAsset?->name,
+                        'type' => $item->mediaAsset?->type,
+                        'url' => $item->mediaAsset ? $this->mediaUrl($item->mediaAsset) : null,
+                    ],
+                ])->values(),
+            ]);
+
         return Inertia::render('playlists/Index', [
             'tenant' => [
                 'id' => $tenant->id,
                 'name' => $tenant->name,
             ],
-            'playlists' => Playlist::query()
-                ->with(['items.mediaAsset', 'items.contentTemplate', 'items.apiConnection', 'overlays'])
-                ->where('tenant_id', $tenant->id)
-                ->orderBy('name')
-                ->get()
-                ->map(fn (Playlist $playlist): array => [
-                    'id' => $playlist->id,
-                    'name' => $playlist->name,
-                    'description' => $playlist->description,
-                    'is_active' => $playlist->is_active,
-                    'status' => $playlist->status,
-                    'overlays' => $playlist->overlays->map(fn (PlaylistOverlay $overlay): array => [
-                        'id' => $overlay->id,
-                        'type' => $overlay->type,
-                        'config' => $overlay->config,
-                        'sort_order' => $overlay->sort_order,
-                        'is_active' => $overlay->is_active,
-                    ])->values(),
-                    'items' => $playlist->items->map(fn (PlaylistItem $item): array => [
-                        'id' => $item->id,
-                        'media_asset_id' => $item->media_asset_id,
-                        'template' => $item->template,
-                        'template_id' => $item->template_id,
-                        'api_connection_id' => $item->api_connection_id,
-                        'template_definition' => $item->contentTemplate ? [
-                            'id' => $item->contentTemplate->id,
-                            'name' => $item->contentTemplate->name,
-                            'html' => $item->contentTemplate->html,
-                            'css' => $item->contentTemplate->css,
-                            'schema' => $item->contentTemplate->schema,
-                        ] : null,
-                        'content' => $item->content,
-                        'data_source' => $this->dataSourceForEditor($item->data_source),
-                        'sort_order' => $item->sort_order,
-                        'duration_seconds' => $item->duration_seconds,
-                        'transition' => $item->transition,
-                        'config' => $item->config ?? ['fit' => 'cover'],
-                        'media' => [
-                            'id' => $item->mediaAsset?->id,
-                            'name' => $item->mediaAsset?->name,
-                            'type' => $item->mediaAsset?->type,
-                            'url' => $item->mediaAsset ? $this->mediaUrl($item->mediaAsset) : null,
-                        ],
-                    ])->values(),
-                ]),
-            'mediaAssets' => MediaAsset::query()
-                ->where('tenant_id', $tenant->id)
-                ->orderBy('name')
-                ->get()
-                ->map(fn (MediaAsset $asset): array => [
-                    'id' => $asset->id,
-                    'name' => $asset->name,
-                    'type' => $asset->type,
-                    'url' => $this->mediaUrl($asset),
-                    'duration_seconds' => $asset->duration_seconds,
-                ]),
-            'templates' => $this->templatesFor($tenant),
-            'apiConnections' => $this->apiConnectionsFor($tenant),
+            'playlists' => $playlists,
+            'usage' => $this->usageFor($tenant),
         ]);
     }
 
@@ -111,6 +111,7 @@ class PlaylistController extends Controller
             'mediaAssets' => $this->mediaAssetsFor($tenant),
             'templates' => $this->templatesFor($tenant),
             'apiConnections' => $this->apiConnectionsFor($tenant),
+            'usage' => $this->usageFor($tenant),
         ]);
     }
 
@@ -158,6 +159,7 @@ class PlaylistController extends Controller
             'mediaAssets' => $this->mediaAssetsFor($tenant),
             'templates' => $this->templatesFor($tenant),
             'apiConnections' => $this->apiConnectionsFor($tenant),
+            'usage' => $this->usageFor($tenant),
         ]);
     }
 
@@ -170,20 +172,32 @@ class PlaylistController extends Controller
         $this->currentTenant->authorizeCanManage($request, $tenant);
         $validated = $this->validated($request, $tenant);
 
-        $playlist = DB::transaction(function () use ($tenant, $validated): Playlist {
-            $playlist = Playlist::query()->create([
-                'tenant_id' => $tenant->id,
-                'name' => $validated['name'],
-                'description' => $validated['description'] ?? null,
-                'is_active' => $validated['is_active'],
-                'status' => $validated['status'],
+        if (! $this->billing->canAddPlaylist($tenant)) {
+            return back()->withErrors([
+                'billing' => 'Batas playlist paket Anda tercapai ('.$this->billing->playlistLimit($tenant).' playlist). Beli slot playlist tambahan di halaman Billing.',
             ]);
+        }
 
-            $this->syncItems($playlist, $tenant, $validated['items'] ?? []);
-            $this->syncOverlays($playlist, $tenant, $validated['overlays'] ?? []);
+        try {
+            $playlist = DB::transaction(function () use ($tenant, $validated, $request): Playlist {
+                $this->chargePlaylistItems($tenant, $validated['name'], count($validated['items'] ?? []), 0, $request);
 
-            return $playlist;
-        });
+                $playlist = Playlist::query()->create([
+                    'tenant_id' => $tenant->id,
+                    'name' => $validated['name'],
+                    'description' => $validated['description'] ?? null,
+                    'is_active' => $validated['is_active'],
+                    'status' => $validated['status'],
+                ]);
+
+                $this->syncItems($playlist, $tenant, $validated['items'] ?? []);
+                $this->syncOverlays($playlist, $tenant, $validated['overlays'] ?? []);
+
+                return $playlist;
+            });
+        } catch (InsufficientTokensException|SubscriptionInactiveException $exception) {
+            return back()->withErrors(['billing' => $exception->getMessage()]);
+        }
 
         $this->activityLogger->log($request, $tenant, 'playlist.created', $playlist, [
             'playlist_name' => $playlist->name,
@@ -202,20 +216,27 @@ class PlaylistController extends Controller
         $this->currentTenant->authorizeModel($tenant, $playlist);
         $this->currentTenant->authorizeCanManage($request, $tenant);
         $validated = $this->validated($request, $tenant);
+        $previousItemCount = $playlist->items()->count();
 
-        DB::transaction(function () use ($playlist, $tenant, $validated): void {
-            $playlist->update([
-                'name' => $validated['name'],
-                'description' => $validated['description'] ?? null,
-                'is_active' => $validated['is_active'],
-                'status' => $validated['status'],
-            ]);
+        try {
+            DB::transaction(function () use ($playlist, $tenant, $validated, $previousItemCount, $request): void {
+                $this->chargePlaylistItems($tenant, $validated['name'], count($validated['items'] ?? []), $previousItemCount, $request);
 
-            $playlist->items()->delete();
-            $this->syncItems($playlist, $tenant, $validated['items'] ?? []);
-            $playlist->overlays()->delete();
-            $this->syncOverlays($playlist, $tenant, $validated['overlays'] ?? []);
-        });
+                $playlist->update([
+                    'name' => $validated['name'],
+                    'description' => $validated['description'] ?? null,
+                    'is_active' => $validated['is_active'],
+                    'status' => $validated['status'],
+                ]);
+
+                $playlist->items()->delete();
+                $this->syncItems($playlist, $tenant, $validated['items'] ?? []);
+                $playlist->overlays()->delete();
+                $this->syncOverlays($playlist, $tenant, $validated['overlays'] ?? []);
+            });
+        } catch (InsufficientTokensException|SubscriptionInactiveException $exception) {
+            return back()->withErrors(['billing' => $exception->getMessage()]);
+        }
 
         $this->activityLogger->log($request, $tenant, 'playlist.updated', $playlist, [
             'playlist_name' => $playlist->name,
@@ -253,43 +274,53 @@ class PlaylistController extends Controller
         $this->currentTenant->authorizeModel($tenant, $playlist);
         $this->currentTenant->authorizeCanManage($request, $tenant);
 
-        $copy = DB::transaction(function () use ($playlist, $tenant): Playlist {
-            $copy = Playlist::query()->create([
-                'tenant_id' => $tenant->id,
-                'name' => $playlist->name.' Copy',
-                'description' => $playlist->description,
-                'is_active' => false,
-                'status' => Playlist::STATUS_DRAFT,
+        if (! $this->billing->canAddPlaylist($tenant)) {
+            return back()->withErrors([
+                'billing' => 'Batas playlist paket Anda tercapai ('.$this->billing->playlistLimit($tenant).' playlist). Beli slot playlist tambahan di halaman Billing.',
             ]);
+        }
 
-            foreach ($playlist->items as $item) {
-                $copy->items()->create([
+        try {
+            $copy = DB::transaction(function () use ($playlist, $tenant): Playlist {
+                $copy = Playlist::query()->create([
                     'tenant_id' => $tenant->id,
-                    'media_asset_id' => $item->media_asset_id,
-                    'template' => $item->template,
-                    'template_id' => $item->template_id,
-                    'api_connection_id' => $item->api_connection_id,
-                    'content' => $item->content,
-                    'data_source' => $this->dataSourceForEditor($item->data_source),
-                    'sort_order' => $item->sort_order,
-                    'duration_seconds' => $item->duration_seconds,
-                    'transition' => $item->transition,
-                    'config' => $item->config,
-                ]);
-            }
-
-            foreach ($playlist->overlays as $overlay) {
-                $copy->overlays()->create([
-                    'tenant_id' => $tenant->id,
-                    'type' => $overlay->type,
-                    'config' => $overlay->config,
-                    'sort_order' => $overlay->sort_order,
+                    'name' => $playlist->name.' Copy',
+                    'description' => $playlist->description,
                     'is_active' => false,
+                    'status' => Playlist::STATUS_DRAFT,
                 ]);
-            }
 
-            return $copy;
-        });
+                foreach ($playlist->items as $item) {
+                    $copy->items()->create([
+                        'tenant_id' => $tenant->id,
+                        'media_asset_id' => $item->media_asset_id,
+                        'template' => $item->template,
+                        'template_id' => $item->template_id,
+                        'api_connection_id' => $item->api_connection_id,
+                        'content' => $item->content,
+                        'data_source' => $this->dataSourceForEditor($item->data_source),
+                        'sort_order' => $item->sort_order,
+                        'duration_seconds' => $item->duration_seconds,
+                        'transition' => $item->transition,
+                        'config' => $item->config,
+                    ]);
+                }
+
+                foreach ($playlist->overlays as $overlay) {
+                    $copy->overlays()->create([
+                        'tenant_id' => $tenant->id,
+                        'type' => $overlay->type,
+                        'config' => $overlay->config,
+                        'sort_order' => $overlay->sort_order,
+                        'is_active' => false,
+                    ]);
+                }
+
+                return $copy;
+            });
+        } catch (InsufficientTokensException|SubscriptionInactiveException $exception) {
+            return back()->withErrors(['billing' => $exception->getMessage()]);
+        }
 
         $this->activityLogger->log($request, $tenant, 'playlist.duplicated', $copy, [
             'playlist_name' => $copy->name,
@@ -297,6 +328,43 @@ class PlaylistController extends Controller
         ]);
 
         return to_route('playlists.index');
+    }
+
+    /**
+     * @return array{playlists: int, playlist_limit: int, free_playlists: int, free_items: int, item_cost: int, balance: int, can_add_playlist: bool}
+     */
+    private function usageFor(Tenant $tenant): array
+    {
+        return [
+            'playlists' => $tenant->playlists()->count(),
+            'playlist_limit' => $this->billing->playlistLimit($tenant),
+            'free_playlists' => $this->billing->freeLimit(TenantBilling::FEATURE_EXTRA_PLAYLIST),
+            'free_items' => $this->billing->playlistItemFreeLimit(),
+            'item_cost' => $this->billing->playlistItemCost(),
+            'balance' => $tenant->token_balance,
+            'can_add_playlist' => $this->billing->canAddPlaylist($tenant),
+        ];
+    }
+
+    private function chargePlaylistItems(Tenant $tenant, string $playlistName, int $newItemCount, int $previousItemCount, Request $request): void
+    {
+        $charge = $this->billing->playlistItemCharge($newItemCount, $previousItemCount);
+
+        if ($charge <= 0) {
+            return;
+        }
+
+        $this->billing->assertCanUsePaidFeatures($tenant);
+
+        $this->billing->debit(
+            $tenant,
+            $charge,
+            TokenTransaction::TYPE_PURCHASE,
+            "Item playlist {$playlistName}",
+            TenantBilling::FEATURE_PLAYLIST_ITEM,
+            ['items' => $newItemCount, 'previous_items' => $previousItemCount],
+            $request->user(),
+        );
     }
 
     public function testDataSource(Request $request): JsonResponse
@@ -343,6 +411,16 @@ class PlaylistController extends Controller
         return response()->json(['message' => 'API connected.', 'data' => $mapped, 'raw' => $payload]);
     }
 
+    private function connectionRule(Tenant $tenant): Exists
+    {
+        return Rule::exists('api_connections', 'id')
+            ->where(fn ($query) => $query
+                ->whereNull('tenant_id')
+                ->orWhere('tenant_id', $tenant->id))
+            ->where('is_active', true)
+            ->where('is_approved', true);
+    }
+
     /**
      * @return array{name: string, description?: string|null, is_active: bool, status: string, items?: array<int, array{media_asset_id: string, duration_seconds: int, transition?: string|null}>}
      */
@@ -371,7 +449,7 @@ class PlaylistController extends Controller
             'overlays.*.config.api_connection_id' => [
                 'nullable',
                 'required_if:overlays.*.type,weather',
-                Rule::exists('api_connections', 'id')->where('tenant_id', $tenant->id)->where('is_active', true)->where('is_approved', true),
+                $this->connectionRule($tenant),
             ],
             'overlays.*.config.endpoint' => ['nullable', 'string', 'max:2048', 'required_if:overlays.*.type,weather'],
             'overlays.*.config.refresh_seconds' => ['nullable', 'integer', 'min:10', 'max:86400'],
@@ -384,7 +462,7 @@ class PlaylistController extends Controller
             ],
             'items.*.api_connection_id' => [
                 'nullable',
-                Rule::exists('api_connections', 'id')->where('tenant_id', $tenant->id)->where('is_active', true)->where('is_approved', true),
+                $this->connectionRule($tenant),
             ],
             'items.*.media_asset_id' => [
                 'nullable',
@@ -492,7 +570,7 @@ class PlaylistController extends Controller
 
     private function mediaUrl(MediaAsset $mediaAsset): string
     {
-        if ($mediaAsset->type === MediaAsset::TYPE_WEB) {
+        if ($mediaAsset->usesExternalUrl()) {
             return $mediaAsset->path;
         }
 
@@ -524,8 +602,15 @@ class PlaylistController extends Controller
     private function templatesFor(Tenant $tenant): array
     {
         return ContentTemplate::query()
+            ->with('platformTemplate')
             ->where('tenant_id', $tenant->id)
+            ->whereNotNull('platform_template_id')
             ->where('is_active', true)
+            ->whereHas('platformTemplate', fn ($query) => $query->where('is_active', true))
+            ->where(function ($query): void {
+                $query->where('is_rented', true)
+                    ->orWhereHas('platformTemplate', fn ($template) => $template->where('token_cost', 0));
+            })
             ->orderBy('name')
             ->get()
             ->map(fn (ContentTemplate $template): array => [
@@ -536,6 +621,8 @@ class PlaylistController extends Controller
                 'css' => $template->css,
                 'schema' => $template->schema ?? [],
                 'is_active' => $template->is_active,
+                'token_cost' => (int) ($template->platformTemplate?->token_cost ?? 0),
+                'is_rented' => (bool) $template->is_rented,
             ])->all();
     }
 
@@ -592,7 +679,9 @@ class PlaylistController extends Controller
     private function apiConnectionsFor(Tenant $tenant): array
     {
         return ApiConnection::query()
-            ->where('tenant_id', $tenant->id)
+            ->where(fn ($query) => $query
+                ->whereNull('tenant_id')
+                ->orWhere('tenant_id', $tenant->id))
             ->where('is_active', true)
             ->where('is_approved', true)
             ->orderBy('name')

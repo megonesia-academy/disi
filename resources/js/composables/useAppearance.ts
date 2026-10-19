@@ -1,5 +1,6 @@
 import type { ComputedRef, Ref } from 'vue';
 import { computed, onMounted, ref } from 'vue';
+import { usePage } from '@inertiajs/vue3';
 import type { Appearance, ResolvedAppearance } from '@/types';
 
 export type { Appearance, ResolvedAppearance };
@@ -83,7 +84,13 @@ export function initializeTheme(): void {
     mediaQuery()?.addEventListener('change', handleSystemThemeChange);
 }
 
-const appearance = ref<Appearance>('system');
+// Get initial appearance from Inertia shared data (server-side cookie value)
+function getInitialAppearance(): Appearance {
+    const page = usePage();
+    return (page.props.initialAppearance as Appearance) || 'system';
+}
+
+const appearance = ref<Appearance>(() => getInitialAppearance());
 
 export function useAppearance(): UseAppearanceReturn {
     onMounted(() => {

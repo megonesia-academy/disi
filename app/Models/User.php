@@ -19,6 +19,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property int $id
  * @property string $name
  * @property string $email
+ * @property string $app_role
  * @property Carbon|null $email_verified_at
  * @property string $password
  * @property string|null $two_factor_secret
@@ -28,12 +29,16 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['name', 'email', 'password'])]
+#[Fillable(['name', 'email', 'app_role', 'password'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable;
+
+    public const APP_ROLE_ADMIN = 'admin';
+
+    public const APP_ROLE_SUBSCRIBER = 'subscriber';
 
     /**
      * Get the attributes that should be cast.
@@ -47,6 +52,21 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
         ];
+    }
+
+    public function isAppAdmin(): bool
+    {
+        return $this->app_role === self::APP_ROLE_ADMIN;
+    }
+
+    public function isSubscriber(): bool
+    {
+        return $this->app_role === self::APP_ROLE_SUBSCRIBER;
+    }
+
+    public function appRoleLabel(): string
+    {
+        return $this->isAppAdmin() ? 'Application admin' : 'Subscriber';
     }
 
     public function tenants(): BelongsToMany
