@@ -27,6 +27,15 @@ import {
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
 
+type TenantMember = {
+    id: number;
+    name: string;
+    email: string;
+    app_role: string;
+    role: string;
+    is_self: boolean;
+};
+
 type TenantRow = {
     id: string;
     name: string;
@@ -39,6 +48,7 @@ type TenantRow = {
     subscription_renews_at: string | null;
     owner: { name: string; email: string } | null;
     users_count: number;
+    users: TenantMember[];
     screens_count: number;
     devices_count: number;
     playlists_count: number;
@@ -54,6 +64,7 @@ const props = defineProps<{
 const search = ref('');
 const statusFilter = ref('all');
 const updatingId = ref<string | null>(null);
+const roleUpdatingId = ref<number | null>(null);
 const adjustOpen = ref(false);
 const adjustingTenant = ref<TenantRow | null>(null);
 
@@ -127,6 +138,20 @@ function setStatus(tenant: TenantRow, status: string): void {
         },
     );
 }
+
+function toggleUserRole(tenant: TenantRow, member: TenantMember): void {
+    roleUpdatingId.value = member.id;
+    router.patch(
+        `/admin/tenants/${tenant.id}/users/${member.id}/role`,
+        { app_role: member.app_role === 'admin' ? 'subscriber' : 'admin' },
+        {
+            preserveScroll: true,
+            onFinish: () => {
+                roleUpdatingId.value = null;
+            },
+        },
+    );
+}
 </script>
 
 <template>
@@ -193,193 +218,272 @@ function setStatus(tenant: TenantRow, status: string): void {
             </span>
         </section>
 
-        <section
-            class="overflow-hidden rounded-lg border bg-background shadow-sm"
-        >
-            <div class="overflow-x-auto">
-                <table class="w-full min-w-[1200px] text-sm">
-                    <thead class="bg-muted/50 text-left text-muted-foreground">
-                        <tr>
-                            <th class="px-4 py-3 font-medium">Tenant</th>
-                            <th class="px-4 py-3 font-medium">Owner</th>
-                            <th class="px-4 py-3 font-medium">Status</th>
-                            <th class="px-4 py-3 font-medium">Token</th>
-                            <th class="px-4 py-3 font-medium">Langganan</th>
-                            <th class="px-4 py-3 font-medium">Users</th>
-                            <th class="px-4 py-3 font-medium">Screens</th>
-                            <th class="px-4 py-3 font-medium">Devices</th>
-                            <th class="px-4 py-3 font-medium">Playlists</th>
-                            <th class="px-4 py-3 font-medium">Media</th>
-                            <th class="px-4 py-3 font-medium">Dibuat</th>
-                            <th class="px-4 py-3 text-right font-medium">
-                                Action
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr
-                            v-for="tenant in visibleTenants"
-                            :key="tenant.id"
-                            class="border-t"
+        <section class="rounded-lg border bg-background shadow-sm">
+            <div class="grid gap-4 p-4 sm:grid-cols-2 2xl:grid-cols-3">
+                <article
+                    v-for="tenant in visibleTenants"
+                    :key="tenant.id"
+                    class="flex flex-col rounded-lg border bg-background shadow-sm transition-shadow hover:shadow-md"
+                >
+                    <div
+                        class="flex items-start justify-between gap-3 border-b px-4 py-3"
+                    >
+                        <div class="min-w-0">
+                            <h2 class="truncate font-semibold">
+                                {{ tenant.name }}
+                            </h2>
+                            <p
+                                class="truncate font-mono text-xs text-muted-foreground"
+                            >
+                                {{ tenant.slug }}
+                            </p>
+                            <p
+                                v-if="tenant.billing_email"
+                                class="truncate text-xs text-muted-foreground"
+                            >
+                                {{ tenant.billing_email }}
+                            </p>
+                        </div>
+                        <div
+                            class="flex shrink-0 flex-wrap items-center justify-end gap-1.5"
                         >
-                            <td class="px-4 py-3">
-                                <div class="font-medium">{{ tenant.name }}</div>
-                                <div
-                                    class="font-mono text-xs text-muted-foreground"
-                                >
-                                    {{ tenant.slug }}
-                                </div>
-                                <div
-                                    v-if="tenant.billing_email"
-                                    class="text-xs text-muted-foreground"
-                                >
-                                    {{ tenant.billing_email }}
-                                </div>
-                            </td>
-                            <td class="px-4 py-3">
-                                <template v-if="tenant.owner">
-                                    <div class="font-medium">
-                                        {{ tenant.owner.name }}
-                                    </div>
-                                    <div class="text-xs text-muted-foreground">
-                                        {{ tenant.owner.email }}
-                                    </div>
-                                </template>
+                            <span
+                                class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
+                                :class="
+                                    tenant.status === 'active'
+                                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                                        : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+                                "
+                            >
+                                {{ tenant.status }}
+                            </span>
+                            <span
+                                class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
+                                :class="
+                                    tenant.subscription_active
+                                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                                        : 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300'
+                                "
+                            >
+                                {{ tenant.subscription_status }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <dl
+                        class="grid grid-cols-2 gap-x-4 gap-y-2 px-4 py-3 text-xs"
+                    >
+                        <div class="col-span-2">
+                            <dt class="text-muted-foreground">Owner</dt>
+                            <dd v-if="tenant.owner" class="mt-0.5 font-medium">
+                                {{ tenant.owner.name }}
                                 <span
-                                    v-else
-                                    class="text-xs text-muted-foreground"
+                                    class="block text-xs font-normal text-muted-foreground"
                                 >
-                                    Tanpa owner
+                                    {{ tenant.owner.email }}
                                 </span>
-                            </td>
-                            <td class="px-4 py-3">
-                                <span
-                                    class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
-                                    :class="
-                                        tenant.status === 'active'
-                                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
-                                            : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
-                                    "
-                                >
-                                    {{ tenant.status }}
-                                </span>
-                            </td>
-                            <td class="px-4 py-3">
+                            </dd>
+                            <dd v-else class="mt-0.5 text-muted-foreground">
+                                Tanpa owner
+                            </dd>
+                        </div>
+                        <div>
+                            <dt class="text-muted-foreground">Token</dt>
+                            <dd class="mt-0.5 font-medium">
                                 <span class="inline-flex items-center gap-1">
                                     <Coins class="size-3.5 text-amber-500" />
                                     <span class="font-semibold">{{
                                         tenant.token_balance
                                     }}</span>
                                 </span>
-                            </td>
-                            <td class="px-4 py-3">
-                                <span
-                                    class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
-                                    :class="
-                                        tenant.subscription_active
-                                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
-                                            : 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300'
-                                    "
-                                >
-                                    {{ tenant.subscription_status }}
-                                </span>
-                                <div
-                                    v-if="tenant.subscription_renews_at"
-                                    class="mt-1 text-[11px] text-muted-foreground"
-                                >
-                                    s.d. {{ tenant.subscription_renews_at }}
-                                </div>
-                            </td>
-                            <td class="px-4 py-3">
-                                <span class="inline-flex items-center gap-1">
-                                    <Users
-                                        class="size-3.5 text-muted-foreground"
-                                    />
-                                    {{ tenant.users_count }}
-                                </span>
-                            </td>
-                            <td class="px-4 py-3">
+                            </dd>
+                        </div>
+                        <div v-if="tenant.subscription_renews_at">
+                            <dt class="text-muted-foreground">
+                                Langganan s.d.
+                            </dt>
+                            <dd class="mt-0.5 font-medium">
+                                {{ tenant.subscription_renews_at }}
+                            </dd>
+                        </div>
+                        <div>
+                            <dt class="text-muted-foreground">Screens</dt>
+                            <dd class="mt-0.5 font-medium">
                                 <span class="inline-flex items-center gap-1">
                                     <Monitor
                                         class="size-3.5 text-muted-foreground"
                                     />
                                     {{ tenant.screens_count }}
                                 </span>
-                            </td>
-                            <td class="px-4 py-3">
+                            </dd>
+                        </div>
+                        <div>
+                            <dt class="text-muted-foreground">Devices</dt>
+                            <dd class="mt-0.5 font-medium">
                                 {{ tenant.devices_count }}
-                            </td>
-                            <td class="px-4 py-3">
+                            </dd>
+                        </div>
+                        <div>
+                            <dt class="text-muted-foreground">Playlists</dt>
+                            <dd class="mt-0.5 font-medium">
                                 <span class="inline-flex items-center gap-1">
                                     <ListVideo
                                         class="size-3.5 text-muted-foreground"
                                     />
                                     {{ tenant.playlists_count }}
                                 </span>
-                            </td>
-                            <td class="px-4 py-3">
+                            </dd>
+                        </div>
+                        <div>
+                            <dt class="text-muted-foreground">Media</dt>
+                            <dd class="mt-0.5 font-medium">
                                 <span class="inline-flex items-center gap-1">
                                     <Image
                                         class="size-3.5 text-muted-foreground"
                                     />
                                     {{ tenant.media_assets_count }}
                                 </span>
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ tenant.created_at ?? '-' }}
-                            </td>
-                            <td class="px-4 py-3">
-                                <div class="flex flex-col items-end gap-1.5">
-                                    <Button
-                                        type="button"
-                                        size="sm"
-                                        variant="outline"
-                                        @click="openAdjust(tenant)"
-                                    >
-                                        <Coins class="size-3.5" /> Token
-                                    </Button>
-                                    <SubmitButton
-                                        v-if="tenant.status === 'active'"
-                                        type="button"
-                                        size="sm"
-                                        variant="destructive"
-                                        title="Suspend tenant"
-                                        loading-label="Menonaktifkan..."
-                                        :processing="updatingId === tenant.id"
-                                        @click="setStatus(tenant, 'suspended')"
-                                    >
-                                        Suspend
-                                    </SubmitButton>
-                                    <SubmitButton
-                                        v-else
-                                        type="button"
-                                        size="sm"
-                                        variant="outline"
-                                        title="Aktifkan tenant"
-                                        loading-label="Mengaktifkan..."
-                                        :processing="updatingId === tenant.id"
-                                        @click="setStatus(tenant, 'active')"
-                                    >
-                                        Activate
-                                    </SubmitButton>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr v-if="visibleTenants.length === 0">
-                            <td
-                                colspan="12"
-                                class="px-4 py-10 text-center text-sm text-muted-foreground"
+                            </dd>
+                        </div>
+                        <div>
+                            <dt class="text-muted-foreground">Dibuat</dt>
+                            <dd
+                                class="mt-0.5 font-medium text-muted-foreground"
                             >
-                                <template v-if="tenants.length">
-                                    Tidak ada tenant yang cocok dengan filter.
-                                </template>
-                                <template v-else>
-                                    Belum ada tenant terdaftar.
-                                </template>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+                                {{ tenant.created_at ?? '-' }}
+                            </dd>
+                        </div>
+                    </dl>
+
+                    <div class="border-t px-4 py-3">
+                        <h3
+                            class="flex items-center gap-1.5 text-xs font-semibold tracking-tight text-muted-foreground"
+                        >
+                            <Users class="size-3.5" />
+                            Users ({{ tenant.users_count }})
+                        </h3>
+                        <ul v-if="tenant.users.length" class="mt-2 space-y-2">
+                            <li
+                                v-for="member in tenant.users"
+                                :key="member.id"
+                                class="flex items-start justify-between gap-2"
+                            >
+                                <div class="min-w-0">
+                                    <p
+                                        class="flex flex-wrap items-center gap-1.5 text-sm font-medium"
+                                    >
+                                        <span class="truncate">{{
+                                            member.name
+                                        }}</span>
+                                        <span
+                                            v-if="member.is_self"
+                                            class="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+                                        >
+                                            You
+                                        </span>
+                                    </p>
+                                    <p
+                                        class="truncate text-xs text-muted-foreground"
+                                    >
+                                        {{ member.email }}
+                                    </p>
+                                    <div
+                                        class="mt-1 flex flex-wrap items-center gap-1"
+                                    >
+                                        <span
+                                            class="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+                                        >
+                                            {{ member.role }}
+                                        </span>
+                                        <span
+                                            class="rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+                                            :class="
+                                                member.app_role === 'admin'
+                                                    ? 'bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300'
+                                                    : 'bg-muted text-muted-foreground'
+                                            "
+                                        >
+                                            {{
+                                                member.app_role === 'admin'
+                                                    ? 'Admin aplikasi'
+                                                    : 'Subscriber'
+                                            }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <SubmitButton
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    :title="
+                                        member.app_role === 'admin'
+                                            ? 'Jadikan subscriber'
+                                            : 'Jadikan admin aplikasi'
+                                    "
+                                    loading-label="Menyimpan..."
+                                    :processing="roleUpdatingId === member.id"
+                                    :disabled="member.is_self"
+                                    @click="toggleUserRole(tenant, member)"
+                                >
+                                    {{
+                                        member.app_role === 'admin'
+                                            ? 'Demote'
+                                            : 'Promote'
+                                    }}
+                                </SubmitButton>
+                            </li>
+                        </ul>
+                        <p v-else class="mt-2 text-xs text-muted-foreground">
+                            Belum ada user di tenant ini.
+                        </p>
+                    </div>
+
+                    <div
+                        class="mt-auto flex flex-wrap gap-2 border-t bg-muted/20 px-4 py-3"
+                    >
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            @click="openAdjust(tenant)"
+                        >
+                            <Coins class="size-3.5" /> Token
+                        </Button>
+                        <SubmitButton
+                            v-if="tenant.status === 'active'"
+                            type="button"
+                            size="sm"
+                            variant="destructive"
+                            title="Suspend tenant"
+                            loading-label="Menonaktifkan..."
+                            :processing="updatingId === tenant.id"
+                            @click="setStatus(tenant, 'suspended')"
+                        >
+                            Suspend
+                        </SubmitButton>
+                        <SubmitButton
+                            v-else
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            title="Aktifkan tenant"
+                            loading-label="Mengaktifkan..."
+                            :processing="updatingId === tenant.id"
+                            @click="setStatus(tenant, 'active')"
+                        >
+                            Activate
+                        </SubmitButton>
+                    </div>
+                </article>
+            </div>
+            <div
+                v-if="visibleTenants.length === 0"
+                class="border-t px-4 py-10 text-center text-sm text-muted-foreground"
+            >
+                <template v-if="tenants.length">
+                    Tidak ada tenant yang cocok dengan filter.
+                </template>
+                <template v-else> Belum ada tenant terdaftar. </template>
             </div>
         </section>
 

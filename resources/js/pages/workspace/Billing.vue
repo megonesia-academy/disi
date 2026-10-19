@@ -426,60 +426,70 @@ function topupTone(status: string): string {
             </div>
         </section>
 
-        <section
-            class="overflow-hidden rounded-lg border bg-background shadow-sm"
-        >
+        <section class="rounded-lg border bg-background shadow-sm">
             <div class="border-b px-4 py-3">
                 <h2 class="font-semibold tracking-tight">Riwayat transaksi</h2>
                 <p class="text-xs text-muted-foreground">
                     20 transaksi terakhir.
                 </p>
             </div>
-            <div class="overflow-x-auto">
-                <table class="w-full min-w-[720px] text-sm">
-                    <thead class="bg-muted/50 text-left text-muted-foreground">
-                        <tr>
-                            <th class="px-4 py-3 font-medium">Waktu</th>
-                            <th class="px-4 py-3 font-medium">Deskripsi</th>
-                            <th class="px-4 py-3 font-medium">Token</th>
-                            <th class="px-4 py-3 font-medium">Saldo</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr
-                            v-for="transaction in transactions"
-                            :key="transaction.id"
-                            class="border-t"
-                        >
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ transaction.created_at ?? '-' }}
-                            </td>
-                            <td class="px-4 py-3">
+            <div class="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
+                <article
+                    v-for="transaction in transactions"
+                    :key="transaction.id"
+                    class="flex flex-col rounded-lg border bg-background shadow-sm transition-shadow hover:shadow-md"
+                >
+                    <div
+                        class="flex items-start justify-between gap-3 border-b px-4 py-3"
+                    >
+                        <div class="min-w-0">
+                            <h2 class="truncate font-semibold">
                                 {{
                                     transaction.description ?? transaction.type
                                 }}
-                            </td>
-                            <td
-                                class="px-4 py-3 font-semibold"
+                            </h2>
+                            <p class="truncate text-xs text-muted-foreground">
+                                {{ transaction.created_at ?? '-' }}
+                            </p>
+                        </div>
+                        <div
+                            class="flex shrink-0 flex-wrap items-center justify-end gap-1.5"
+                        >
+                            <span
+                                v-if="transaction.description"
+                                class="inline-flex rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground"
+                            >
+                                {{ transaction.type }}
+                            </span>
+                        </div>
+                    </div>
+                    <dl
+                        class="grid grid-cols-2 gap-x-4 gap-y-2 px-4 py-3 text-xs"
+                    >
+                        <div>
+                            <dt class="text-muted-foreground">Token</dt>
+                            <dd
+                                class="mt-0.5 font-semibold"
                                 :class="transactionTone(transaction.tokens)"
                             >
                                 {{ transaction.tokens > 0 ? '+' : ''
                                 }}{{ transaction.tokens }}
-                            </td>
-                            <td class="px-4 py-3">
+                            </dd>
+                        </div>
+                        <div>
+                            <dt class="text-muted-foreground">Saldo</dt>
+                            <dd class="mt-0.5 font-medium">
                                 {{ transaction.balance_after }}
-                            </td>
-                        </tr>
-                        <tr v-if="transactions.length === 0">
-                            <td
-                                colspan="4"
-                                class="px-4 py-8 text-center text-sm text-muted-foreground"
-                            >
-                                Belum ada transaksi.
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+                            </dd>
+                        </div>
+                    </dl>
+                </article>
+            </div>
+            <div
+                v-if="transactions.length === 0"
+                class="border-t px-4 py-10 text-center text-sm text-muted-foreground"
+            >
+                Belum ada transaksi.
             </div>
         </section>
 

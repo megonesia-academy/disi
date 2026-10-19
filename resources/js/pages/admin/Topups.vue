@@ -199,119 +199,120 @@ function reject(request: TopupRequest): void {
             </span>
         </section>
 
-        <section
-            class="overflow-hidden rounded-lg border bg-background shadow-sm"
-        >
-            <div class="overflow-x-auto">
-                <table class="w-full min-w-[880px] text-sm">
-                    <thead class="bg-muted/50 text-left text-muted-foreground">
-                        <tr>
-                            <th class="px-4 py-3 font-medium">Tenant</th>
-                            <th class="px-4 py-3 font-medium">Token</th>
-                            <th class="px-4 py-3 font-medium">Status</th>
-                            <th class="px-4 py-3 font-medium">Diminta oleh</th>
-                            <th class="px-4 py-3 font-medium">Catatan</th>
-                            <th class="px-4 py-3 font-medium">Waktu</th>
-                            <th class="px-4 py-3 text-right font-medium">
-                                Action
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr
-                            v-for="request in visibleRequests"
-                            :key="request.id"
-                            class="border-t"
-                        >
-                            <td class="px-4 py-3">
-                                <div class="font-medium">
-                                    {{
-                                        request.tenant?.name ?? 'Tenant dihapus'
-                                    }}
-                                </div>
-                                <div
-                                    class="font-mono text-xs text-muted-foreground"
-                                >
-                                    {{ request.tenant?.slug }}
-                                </div>
-                            </td>
-                            <td class="px-4 py-3 font-semibold">
-                                {{ request.tokens }}
-                            </td>
-                            <td class="px-4 py-3">
-                                <span
-                                    class="rounded-full px-2 py-0.5 text-xs font-medium"
-                                    :class="statusTone(request.status)"
-                                >
-                                    {{ request.status }}
-                                </span>
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ request.requested_by ?? '-' }}
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ request.note ?? '-' }}
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ request.created_at ?? '-' }}
-                            </td>
-                            <td class="px-4 py-3 text-right">
-                                <div
-                                    v-if="request.status === 'pending'"
-                                    class="flex justify-end gap-1"
-                                >
-                                    <SubmitButton
-                                        type="button"
-                                        size="sm"
-                                        variant="outline"
-                                        title="Setujui topup"
-                                        loading-label="Memproses..."
-                                        :processing="
-                                            processingId === request.id
-                                        "
-                                        @click="approve(request)"
-                                    >
-                                        <CheckCircle2 class="size-4" />
-                                        Approve
-                                    </SubmitButton>
-                                    <SubmitButton
-                                        type="button"
-                                        size="sm"
-                                        variant="destructive"
-                                        title="Tolak topup"
-                                        loading-label="Memproses..."
-                                        :processing="
-                                            processingId === request.id
-                                        "
-                                        @click="reject(request)"
-                                    >
-                                        <X class="size-4" />
-                                        Reject
-                                    </SubmitButton>
-                                </div>
-                                <span
-                                    v-else
-                                    class="text-xs text-muted-foreground"
-                                >
-                                    {{ request.approved_at ?? '-' }}
-                                </span>
-                            </td>
-                        </tr>
-                        <tr v-if="visibleRequests.length === 0">
-                            <td
-                                colspan="7"
-                                class="px-4 py-10 text-center text-sm text-muted-foreground"
+        <section class="rounded-lg border bg-background shadow-sm">
+            <div class="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
+                <article
+                    v-for="request in visibleRequests"
+                    :key="request.id"
+                    class="flex flex-col rounded-lg border bg-background shadow-sm transition-shadow hover:shadow-md"
+                >
+                    <div
+                        class="flex items-start justify-between gap-3 border-b px-4 py-3"
+                    >
+                        <div class="min-w-0">
+                            <h2 class="truncate font-semibold">
+                                {{ request.tenant?.name ?? 'Tenant dihapus' }}
+                            </h2>
+                            <p
+                                class="truncate font-mono text-xs text-muted-foreground"
                             >
-                                <template v-if="requests.length">
-                                    Tidak ada request yang cocok.
-                                </template>
-                                <template v-else>
-                                    Belum ada permintaan topup.
-                                </template>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+                                {{ request.tenant?.slug }}
+                            </p>
+                        </div>
+                        <div
+                            class="flex shrink-0 flex-wrap items-center justify-end gap-1.5"
+                        >
+                            <span
+                                class="rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                                :class="statusTone(request.status)"
+                            >
+                                {{ request.status }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <dl
+                        class="grid grid-cols-2 gap-x-4 gap-y-2 px-4 py-3 text-xs"
+                    >
+                        <div>
+                            <dt class="text-muted-foreground">Token</dt>
+                            <dd class="mt-0.5 font-semibold">
+                                {{ request.tokens }}
+                            </dd>
+                        </div>
+                        <div>
+                            <dt class="text-muted-foreground">Diminta oleh</dt>
+                            <dd class="mt-0.5 font-medium">
+                                {{ request.requested_by ?? '-' }}
+                            </dd>
+                        </div>
+                        <div>
+                            <dt class="text-muted-foreground">Waktu</dt>
+                            <dd class="mt-0.5 font-medium">
+                                {{ request.created_at ?? '-' }}
+                            </dd>
+                        </div>
+                        <div>
+                            <dt class="text-muted-foreground">Disetujui</dt>
+                            <dd class="mt-0.5 font-medium">
+                                {{ request.approved_at ?? '-' }}
+                            </dd>
+                        </div>
+                        <div class="col-span-2">
+                            <dt class="text-muted-foreground">Catatan</dt>
+                            <dd class="mt-0.5 font-medium">
+                                {{ request.note ?? '-' }}
+                            </dd>
+                        </div>
+                    </dl>
+
+                    <div
+                        class="mt-auto flex flex-wrap gap-2 border-t bg-muted/20 px-4 py-3"
+                    >
+                        <div
+                            v-if="request.status === 'pending'"
+                            class="flex flex-wrap gap-2"
+                        >
+                            <SubmitButton
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                title="Setujui topup"
+                                loading-label="Memproses..."
+                                :processing="processingId === request.id"
+                                @click="approve(request)"
+                            >
+                                <CheckCircle2 class="size-4" />
+                                Approve
+                            </SubmitButton>
+                            <SubmitButton
+                                type="button"
+                                size="sm"
+                                variant="destructive"
+                                title="Tolak topup"
+                                loading-label="Memproses..."
+                                :processing="processingId === request.id"
+                                @click="reject(request)"
+                            >
+                                <X class="size-4" />
+                                Reject
+                            </SubmitButton>
+                        </div>
+                        <span v-else class="text-xs text-muted-foreground">
+                            {{ request.approved_at ?? '-' }}
+                        </span>
+                    </div>
+                </article>
+            </div>
+
+            <div
+                v-if="visibleRequests.length === 0"
+                class="border-t px-4 py-10 text-center text-sm text-muted-foreground"
+            >
+                <template v-if="requests.length">
+                    Tidak ada request yang cocok.
+                </template>
+                <template v-else>Belum ada permintaan topup.</template>
             </div>
         </section>
     </div>

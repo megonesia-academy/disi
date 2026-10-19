@@ -159,88 +159,89 @@ function subjectLabel(activity: ActivityRow): string {
             </span>
         </section>
 
-        <section
-            class="overflow-hidden rounded-lg border bg-background shadow-sm"
-        >
-            <div class="overflow-x-auto">
-                <table class="w-full min-w-[1080px] text-sm">
-                    <thead class="bg-muted/50 text-left text-muted-foreground">
-                        <tr>
-                            <th class="px-4 py-3 font-medium">Waktu</th>
-                            <th class="px-4 py-3 font-medium">Tenant</th>
-                            <th class="px-4 py-3 font-medium">User</th>
-                            <th class="px-4 py-3 font-medium">Event</th>
-                            <th class="px-4 py-3 font-medium">Subject</th>
-                            <th class="px-4 py-3 font-medium">IP</th>
-                            <th class="px-4 py-3 font-medium">Detail</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr
-                            v-for="activity in visibleActivities"
-                            :key="activity.id"
-                            class="border-t align-top"
+        <section class="rounded-lg border bg-background shadow-sm">
+            <div class="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
+                <article
+                    v-for="activity in visibleActivities"
+                    :key="activity.id"
+                    class="flex flex-col rounded-lg border bg-background shadow-sm transition-shadow hover:shadow-md"
+                >
+                    <div
+                        class="flex items-start justify-between gap-3 border-b px-4 py-3"
+                    >
+                        <div class="min-w-0">
+                            <h2 class="truncate font-semibold">
+                                {{ activity.tenant?.name ?? '-' }}
+                            </h2>
+                            <p
+                                v-if="activity.tenant"
+                                class="truncate font-mono text-xs text-muted-foreground"
+                            >
+                                {{ activity.tenant.slug }}
+                            </p>
+                        </div>
+                        <div
+                            class="flex shrink-0 flex-wrap items-center justify-end gap-1.5"
                         >
-                            <td
-                                class="px-4 py-3 whitespace-nowrap text-muted-foreground"
+                            <span
+                                class="inline-flex rounded-full bg-muted px-2 py-0.5 font-mono text-xs"
+                            >
+                                {{ activity.event }}
+                            </span>
+                        </div>
+                    </div>
+                    <dl
+                        class="grid grid-cols-2 gap-x-4 gap-y-2 px-4 py-3 text-xs"
+                    >
+                        <div class="min-w-0">
+                            <dt class="text-muted-foreground">Waktu</dt>
+                            <dd
+                                class="mt-0.5 font-medium"
                                 :title="activity.created_at_iso ?? ''"
                             >
                                 {{ activity.created_at ?? '-' }}
-                            </td>
-                            <td class="px-4 py-3">
-                                <template v-if="activity.tenant">
-                                    <div class="font-medium">
-                                        {{ activity.tenant.name }}
-                                    </div>
-                                    <div
-                                        class="font-mono text-xs text-muted-foreground"
-                                    >
-                                        {{ activity.tenant.slug }}
-                                    </div>
-                                </template>
-                                <span v-else class="text-muted-foreground">
-                                    -
-                                </span>
-                            </td>
-                            <td class="px-4 py-3">
+                            </dd>
+                        </div>
+                        <div class="min-w-0">
+                            <dt class="text-muted-foreground">User</dt>
+                            <dd class="mt-0.5 font-medium">
                                 <template v-if="activity.user">
-                                    <div class="font-medium">
+                                    <span class="block truncate">
                                         {{ activity.user.name }}
-                                    </div>
-                                    <div class="text-xs text-muted-foreground">
+                                    </span>
+                                    <span
+                                        class="block truncate text-muted-foreground"
+                                    >
                                         {{ activity.user.email }}
-                                    </div>
+                                    </span>
                                 </template>
                                 <span v-else class="text-muted-foreground">
                                     system
                                 </span>
-                            </td>
-                            <td class="px-4 py-3">
-                                <span
-                                    class="inline-flex rounded-full bg-muted px-2 py-0.5 font-mono text-xs"
-                                >
-                                    {{ activity.event }}
-                                </span>
-                            </td>
-                            <td class="px-4 py-3">
-                                <span
-                                    class="block max-w-64 truncate font-mono text-xs text-muted-foreground"
-                                    :title="subjectLabel(activity)"
-                                >
-                                    {{ subjectLabel(activity) }}
-                                </span>
-                            </td>
-                            <td
-                                class="px-4 py-3 font-mono text-xs text-muted-foreground"
+                            </dd>
+                        </div>
+                        <div class="col-span-2 min-w-0">
+                            <dt class="text-muted-foreground">Subject</dt>
+                            <dd
+                                class="mt-0.5 truncate font-mono font-medium"
+                                :title="subjectLabel(activity)"
                             >
+                                {{ subjectLabel(activity) }}
+                            </dd>
+                        </div>
+                        <div class="min-w-0">
+                            <dt class="text-muted-foreground">IP</dt>
+                            <dd class="mt-0.5 truncate font-mono font-medium">
                                 {{ activity.ip_address ?? '-' }}
-                            </td>
-                            <td class="px-4 py-3">
+                            </dd>
+                        </div>
+                        <div class="col-span-2 min-w-0">
+                            <dt class="text-muted-foreground">Detail</dt>
+                            <dd class="mt-0.5">
                                 <details
                                     v-if="
                                         Object.keys(activity.properties).length
                                     "
-                                    class="max-w-72"
                                 >
                                     <summary
                                         class="cursor-pointer text-xs font-medium text-primary"
@@ -255,24 +256,25 @@ function subjectLabel(activity: ActivityRow): string {
                                             )
                                         }}</pre>
                                 </details>
-                                <span v-else class="text-muted-foreground">
+                                <span
+                                    v-else
+                                    class="font-medium text-muted-foreground"
+                                >
                                     -
                                 </span>
-                            </td>
-                        </tr>
-                        <tr v-if="visibleActivities.length === 0">
-                            <td
-                                colspan="7"
-                                class="px-4 py-10 text-center text-sm text-muted-foreground"
-                            >
-                                <ClipboardList
-                                    class="mx-auto mb-2 size-6 text-muted-foreground"
-                                />
-                                Tidak ada aktivitas yang cocok dengan filter.
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+                            </dd>
+                        </div>
+                    </dl>
+                </article>
+            </div>
+            <div
+                v-if="visibleActivities.length === 0"
+                class="border-t px-4 py-10 text-center text-sm text-muted-foreground"
+            >
+                <ClipboardList
+                    class="mx-auto mb-2 size-6 text-muted-foreground"
+                />
+                Tidak ada aktivitas yang cocok dengan filter.
             </div>
         </section>
     </div>

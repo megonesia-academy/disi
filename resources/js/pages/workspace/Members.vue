@@ -111,9 +111,7 @@ function removeMember(member: Member): void {
             </div>
         </section>
 
-        <section
-            class="overflow-hidden rounded-lg border bg-background shadow-sm"
-        >
+        <section class="rounded-lg border bg-background shadow-sm">
             <div class="border-b px-4 py-3">
                 <h2 class="font-semibold tracking-tight">Member list</h2>
                 <p class="text-xs text-muted-foreground">
@@ -121,98 +119,103 @@ function removeMember(member: Member): void {
                 </p>
             </div>
 
-            <div class="overflow-x-auto">
-                <table class="w-full min-w-[820px] text-sm">
-                    <thead class="bg-muted/50 text-left text-muted-foreground">
-                        <tr>
-                            <th class="px-4 py-3 font-medium">Member</th>
-                            <th class="px-4 py-3 font-medium">Current role</th>
-                            <th class="px-4 py-3 font-medium">Change role</th>
-                            <th class="px-4 py-3 text-right font-medium">
-                                Actions
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr
-                            v-for="member in members"
-                            :key="member.id"
-                            class="border-t"
-                        >
-                            <td class="px-4 py-3">
-                                <div class="font-medium">
-                                    {{ member.name }}
-                                    <span
-                                        v-if="member.is_current_user"
-                                        class="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
-                                    >
-                                        You
-                                    </span>
-                                </div>
-                                <div class="text-xs text-muted-foreground">
-                                    {{ member.email }}
-                                </div>
-                            </td>
-                            <td class="px-4 py-3">
+            <div class="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
+                <article
+                    v-for="member in members"
+                    :key="member.id"
+                    class="flex flex-col rounded-lg border bg-background shadow-sm transition-shadow hover:shadow-md"
+                >
+                    <div
+                        class="flex items-start justify-between gap-3 border-b px-4 py-3"
+                    >
+                        <div class="min-w-0">
+                            <h2
+                                class="flex items-center gap-2 truncate font-semibold"
+                            >
+                                {{ member.name }}
                                 <span
-                                    class="rounded-full bg-muted px-2 py-1 text-xs font-medium text-muted-foreground"
+                                    v-if="member.is_current_user"
+                                    class="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground"
                                 >
-                                    {{ member.role }}
+                                    You
                                 </span>
-                            </td>
-                            <td class="px-4 py-3">
-                                <select
-                                    v-model="roleForm(member).role"
-                                    class="option:bg-background option:text-foreground h-9 w-44 rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                                >
-                                    <option
-                                        v-for="role in roles"
-                                        :key="role"
-                                        :value="role"
-                                    >
-                                        {{ role }}
-                                    </option>
-                                </select>
-                            </td>
-                            <td class="px-4 py-3 text-right">
-                                <div class="flex justify-end gap-2">
-                                    <SubmitButton
-                                        type="button"
-                                        size="sm"
-                                        variant="outline"
-                                        title="Update role"
-                                        loading-label="Menyimpan..."
-                                        :processing="
-                                            roleForm(member).processing
-                                        "
-                                        :disabled="
-                                            roleForm(member).role ===
-                                            member.role
-                                        "
-                                        @click="updateRole(member)"
-                                    >
-                                        <Save class="size-4" />
-                                        Update
-                                    </SubmitButton>
-                                    <SubmitButton
-                                        type="button"
-                                        size="sm"
-                                        variant="destructive"
-                                        title="Remove member"
-                                        aria-label="Remove member"
-                                        loading-label="Menghapus..."
-                                        :processing="removingId === member.id"
-                                        :disabled="member.is_current_user"
-                                        @click="removeMember(member)"
-                                    >
-                                        <Trash2 class="size-4" />
-                                        Remove
-                                    </SubmitButton>
-                                </div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+                            </h2>
+                            <p class="truncate text-xs text-muted-foreground">
+                                {{ member.email }}
+                            </p>
+                        </div>
+                        <div
+                            class="flex shrink-0 flex-wrap items-center justify-end gap-1.5"
+                        >
+                            <span
+                                class="rounded-full bg-muted px-2 py-1 text-[11px] font-medium text-muted-foreground"
+                            >
+                                {{ member.role }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="px-4 py-3">
+                        <label
+                            class="text-xs text-muted-foreground"
+                            :for="`role-${member.id}`"
+                        >
+                            Change role
+                        </label>
+                        <select
+                            :id="`role-${member.id}`"
+                            v-model="roleForm(member).role"
+                            class="option:bg-background option:text-foreground h-9 w-44 rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                        >
+                            <option
+                                v-for="role in roles"
+                                :key="role"
+                                :value="role"
+                            >
+                                {{ role }}
+                            </option>
+                        </select>
+                    </div>
+
+                    <div
+                        class="mt-auto flex flex-wrap gap-2 border-t bg-muted/20 px-4 py-3"
+                    >
+                        <SubmitButton
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            title="Update role"
+                            loading-label="Menyimpan..."
+                            :processing="roleForm(member).processing"
+                            :disabled="roleForm(member).role === member.role"
+                            @click="updateRole(member)"
+                        >
+                            <Save class="size-4" />
+                            Update
+                        </SubmitButton>
+                        <SubmitButton
+                            type="button"
+                            size="sm"
+                            variant="destructive"
+                            title="Remove member"
+                            aria-label="Remove member"
+                            loading-label="Menghapus..."
+                            :processing="removingId === member.id"
+                            :disabled="member.is_current_user"
+                            @click="removeMember(member)"
+                        >
+                            <Trash2 class="size-4" />
+                            Remove
+                        </SubmitButton>
+                    </div>
+                </article>
+            </div>
+
+            <div
+                v-if="members.length === 0"
+                class="border-t px-4 py-10 text-center text-sm text-muted-foreground"
+            >
+                Belum ada member.
             </div>
         </section>
     </div>

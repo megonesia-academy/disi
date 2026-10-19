@@ -173,9 +173,7 @@ defineProps<{
             </div>
         </section>
 
-        <section
-            class="overflow-hidden rounded-lg border bg-background shadow-sm"
-        >
+        <section class="rounded-lg border bg-background shadow-sm">
             <div class="flex items-center justify-between border-b px-4 py-3">
                 <div>
                     <h2 class="font-semibold tracking-tight">Tenant terbaru</h2>
@@ -191,88 +189,97 @@ defineProps<{
                 </Link>
             </div>
 
-            <div class="overflow-x-auto">
-                <table class="w-full min-w-[1040px] text-sm">
-                    <thead class="bg-muted/50 text-left text-muted-foreground">
-                        <tr>
-                            <th class="px-4 py-3 font-medium">Tenant</th>
-                            <th class="px-4 py-3 font-medium">Status</th>
-                            <th class="px-4 py-3 font-medium">Token</th>
-                            <th class="px-4 py-3 font-medium">Langganan</th>
-                            <th class="px-4 py-3 font-medium">Users</th>
-                            <th class="px-4 py-3 font-medium">Devices</th>
-                            <th class="px-4 py-3 font-medium">Playlists</th>
-                            <th class="px-4 py-3 font-medium">Dibuat</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr
-                            v-for="tenant in recentTenants"
-                            :key="tenant.id"
-                            class="border-t"
-                        >
-                            <td class="px-4 py-3">
-                                <div class="font-medium">{{ tenant.name }}</div>
-                                <div
-                                    class="font-mono text-xs text-muted-foreground"
-                                >
-                                    {{ tenant.slug }}
-                                </div>
-                            </td>
-                            <td class="px-4 py-3">
-                                <span
-                                    class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
-                                    :class="
-                                        tenant.status === 'active'
-                                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
-                                            : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
-                                    "
-                                >
-                                    {{ tenant.status }}
-                                </span>
-                            </td>
-                            <td class="px-4 py-3 font-semibold">
-                                {{ tenant.token_balance }}
-                            </td>
-                            <td class="px-4 py-3">
-                                <span
-                                    class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
-                                    :class="
-                                        tenant.subscription_status === 'active'
-                                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
-                                            : 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300'
-                                    "
-                                >
-                                    {{ tenant.subscription_status }}
-                                </span>
-                                <div
-                                    v-if="tenant.subscription_renews_at"
-                                    class="mt-1 text-[11px] text-muted-foreground"
-                                >
-                                    s.d. {{ tenant.subscription_renews_at }}
-                                </div>
-                            </td>
-                            <td class="px-4 py-3">{{ tenant.users_count }}</td>
-                            <td class="px-4 py-3">
-                                {{ tenant.devices_count }}
-                            </td>
-                            <td class="px-4 py-3">
-                                {{ tenant.playlists_count }}
-                            </td>
-                            <td class="px-4 py-3 text-muted-foreground">
-                                {{ tenant.created_at ?? '-' }}
-                            </td>
-                        </tr>
-                        <tr v-if="recentTenants.length === 0">
-                            <td
-                                colspan="8"
-                                class="px-4 py-10 text-center text-sm text-muted-foreground"
+            <div class="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
+                <article
+                    v-for="tenant in recentTenants"
+                    :key="tenant.id"
+                    class="flex flex-col rounded-lg border bg-background shadow-sm transition-shadow hover:shadow-md"
+                >
+                    <div
+                        class="flex items-start justify-between gap-3 border-b px-4 py-3"
+                    >
+                        <div class="min-w-0">
+                            <h2 class="truncate font-semibold">
+                                {{ tenant.name }}
+                            </h2>
+                            <p
+                                class="truncate font-mono text-xs text-muted-foreground"
                             >
-                                Belum ada tenant terdaftar.
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+                                {{ tenant.slug }}
+                            </p>
+                        </div>
+                        <div
+                            class="flex shrink-0 flex-wrap items-center justify-end gap-1.5"
+                        >
+                            <span
+                                class="inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                                :class="
+                                    tenant.status === 'active'
+                                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                                        : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+                                "
+                            >
+                                {{ tenant.status }}
+                            </span>
+                            <span
+                                class="inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                                :class="
+                                    tenant.subscription_status === 'active'
+                                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                                        : 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300'
+                                "
+                            >
+                                {{ tenant.subscription_status }}
+                            </span>
+                        </div>
+                    </div>
+                    <dl
+                        class="grid grid-cols-2 gap-x-4 gap-y-2 px-4 py-3 text-xs"
+                    >
+                        <div>
+                            <dt class="text-muted-foreground">Token</dt>
+                            <dd class="mt-0.5 font-semibold">
+                                {{ tenant.token_balance }}
+                            </dd>
+                        </div>
+                        <div v-if="tenant.subscription_renews_at">
+                            <dt class="text-muted-foreground">Langganan</dt>
+                            <dd class="mt-0.5 font-medium">
+                                s.d. {{ tenant.subscription_renews_at }}
+                            </dd>
+                        </div>
+                        <div>
+                            <dt class="text-muted-foreground">Users</dt>
+                            <dd class="mt-0.5 font-medium">
+                                {{ tenant.users_count }}
+                            </dd>
+                        </div>
+                        <div>
+                            <dt class="text-muted-foreground">Devices</dt>
+                            <dd class="mt-0.5 font-medium">
+                                {{ tenant.devices_count }}
+                            </dd>
+                        </div>
+                        <div>
+                            <dt class="text-muted-foreground">Playlists</dt>
+                            <dd class="mt-0.5 font-medium">
+                                {{ tenant.playlists_count }}
+                            </dd>
+                        </div>
+                        <div>
+                            <dt class="text-muted-foreground">Dibuat</dt>
+                            <dd class="mt-0.5 font-medium">
+                                {{ tenant.created_at ?? '-' }}
+                            </dd>
+                        </div>
+                    </dl>
+                </article>
+            </div>
+            <div
+                v-if="recentTenants.length === 0"
+                class="border-t px-4 py-10 text-center text-sm text-muted-foreground"
+            >
+                Belum ada tenant terdaftar.
             </div>
         </section>
 

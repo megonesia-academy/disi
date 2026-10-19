@@ -356,115 +356,118 @@ function destroySchedule(schedule: Schedule): void {
                 </div>
             </form>
 
-            <div
-                class="overflow-hidden rounded-lg border border-sidebar-border/70 dark:border-sidebar-border"
-            >
+            <section class="rounded-lg border bg-background shadow-sm">
                 <div class="border-b px-4 py-3">
                     <h2 class="font-medium">Schedule list</h2>
                 </div>
 
-                <div class="overflow-x-auto">
-                    <table class="w-full min-w-[900px] text-sm">
-                        <thead
-                            class="bg-muted/50 text-left text-muted-foreground"
+                <div class="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
+                    <article
+                        v-for="schedule in schedules"
+                        :key="schedule.id"
+                        class="flex flex-col rounded-lg border bg-background shadow-sm transition-shadow hover:shadow-md"
+                    >
+                        <div
+                            class="flex items-start justify-between gap-3 border-b px-4 py-3"
                         >
-                            <tr>
-                                <th class="px-4 py-3 font-medium">Target</th>
-                                <th class="px-4 py-3 font-medium">Window</th>
-                                <th class="px-4 py-3 font-medium">Priority</th>
-                                <th class="px-4 py-3 font-medium">Status</th>
-                                <th class="px-4 py-3 text-right font-medium">
-                                    Actions
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr
-                                v-for="schedule in schedules"
-                                :key="schedule.id"
-                                class="border-t align-top"
+                            <div class="min-w-0">
+                                <h2 class="truncate font-semibold">
+                                    {{ schedule.screen.name }}
+                                </h2>
+                                <p
+                                    class="truncate text-xs text-muted-foreground"
+                                >
+                                    {{ schedule.playlist.name }}
+                                </p>
+                            </div>
+                            <div
+                                class="flex shrink-0 flex-wrap items-center justify-end gap-1.5"
                             >
-                                <td class="px-4 py-3">
-                                    <div class="font-medium">
-                                        {{ schedule.screen.name }}
-                                    </div>
-                                    <div class="text-xs text-muted-foreground">
-                                        {{ schedule.playlist.name }}
-                                    </div>
-                                </td>
-                                <td class="px-4 py-3">
-                                    <div>
+                                <span
+                                    class="inline-flex rounded-full px-2 py-1 text-xs font-medium"
+                                    :class="
+                                        schedule.is_active
+                                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                                            : 'bg-zinc-100 text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300'
+                                    "
+                                >
+                                    {{
+                                        schedule.is_active
+                                            ? 'active'
+                                            : 'inactive'
+                                    }}
+                                </span>
+                            </div>
+                        </div>
+
+                        <dl
+                            class="grid grid-cols-2 gap-x-4 gap-y-2 px-4 py-3 text-xs"
+                        >
+                            <div class="col-span-2">
+                                <dt class="text-muted-foreground">Window</dt>
+                                <dd class="mt-0.5 font-medium">
+                                    <span class="block">
                                         {{ schedule.starts_at ?? 'Always' }} -
                                         {{ schedule.ends_at ?? 'Open' }}
-                                    </div>
-                                    <div class="text-xs text-muted-foreground">
+                                    </span>
+                                    <span
+                                        class="block font-normal text-muted-foreground"
+                                    >
                                         {{ schedule.start_time ?? '00:00' }} -
                                         {{ schedule.end_time ?? '23:59' }}
-                                    </div>
-                                </td>
-                                <td class="px-4 py-3">
-                                    {{ schedule.priority }}
-                                </td>
-                                <td class="px-4 py-3">
-                                    <span
-                                        class="inline-flex rounded-full px-2 py-1 text-xs font-medium"
-                                        :class="
-                                            schedule.is_active
-                                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
-                                                : 'bg-zinc-100 text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300'
-                                        "
-                                    >
-                                        {{
-                                            schedule.is_active
-                                                ? 'active'
-                                                : 'inactive'
-                                        }}
                                     </span>
-                                </td>
-                                <td class="px-4 py-3 text-right">
-                                    <div class="flex justify-end gap-2">
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            @click="editSchedule(schedule)"
-                                        >
-                                            <Pencil class="size-4" />
-                                            Edit
-                                        </Button>
-                                        <SubmitButton
-                                            type="button"
-                                            size="sm"
-                                            variant="destructive"
-                                            title="Delete schedule"
-                                            aria-label="Delete schedule"
-                                            loading-label="Menghapus..."
-                                            :processing="
-                                                deletingId === schedule.id
-                                            "
-                                            @click="destroySchedule(schedule)"
-                                        >
-                                            <Trash2 class="size-4" />
-                                            Delete
-                                        </SubmitButton>
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr v-if="schedules.length === 0">
-                                <td colspan="5" class="px-4 py-6">
-                                    <EmptyState
-                                        title="Belum ada schedule aktif"
-                                        description="Schedule menghubungkan playlist ke screen. Tanpa schedule, player belum tahu konten mana yang harus tampil."
-                                        action-label="Pilih screen dan playlist"
-                                        action-href="/schedules"
-                                        secondary-label="Manage playlists"
-                                        secondary-href="/playlists"
-                                    />
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                                </dd>
+                            </div>
+                            <div>
+                                <dt class="text-muted-foreground">Priority</dt>
+                                <dd class="mt-0.5 font-medium">
+                                    {{ schedule.priority }}
+                                </dd>
+                            </div>
+                        </dl>
+
+                        <div
+                            class="mt-auto flex flex-wrap gap-2 border-t bg-muted/20 px-4 py-3"
+                        >
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                @click="editSchedule(schedule)"
+                            >
+                                <Pencil class="size-4" />
+                                Edit
+                            </Button>
+                            <SubmitButton
+                                type="button"
+                                size="sm"
+                                variant="destructive"
+                                title="Delete schedule"
+                                aria-label="Delete schedule"
+                                loading-label="Menghapus..."
+                                :processing="deletingId === schedule.id"
+                                @click="destroySchedule(schedule)"
+                            >
+                                <Trash2 class="size-4" />
+                                Delete
+                            </SubmitButton>
+                        </div>
+                    </article>
                 </div>
-            </div>
+
+                <div
+                    v-if="schedules.length === 0"
+                    class="border-t px-4 py-10 text-center text-sm text-muted-foreground"
+                >
+                    <EmptyState
+                        title="Belum ada schedule aktif"
+                        description="Schedule menghubungkan playlist ke screen. Tanpa schedule, player belum tahu konten mana yang harus tampil."
+                        action-label="Pilih screen dan playlist"
+                        action-href="/schedules"
+                        secondary-label="Manage playlists"
+                        secondary-href="/playlists"
+                    />
+                </div>
+            </section>
         </section>
     </div>
 </template>

@@ -7,7 +7,6 @@ use App\Http\Controllers\Admin\AdminPricingController;
 use App\Http\Controllers\Admin\AdminTemplateController;
 use App\Http\Controllers\Admin\AdminTenantController;
 use App\Http\Controllers\Admin\AdminTopupController;
-use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\ApiConnectionController;
 use App\Http\Controllers\ContentTemplateController;
 use App\Http\Controllers\DashboardController;
@@ -84,8 +83,7 @@ Route::middleware(['auth', 'verified', 'tenant.active'])->group(function () {
         Route::get('tenants', [AdminTenantController::class, 'index'])->name('tenants.index');
         Route::patch('tenants/{tenant}/status', [AdminTenantController::class, 'updateStatus'])->name('tenants.status');
         Route::post('tenants/{tenant}/tokens', [AdminTenantController::class, 'adjustTokens'])->name('tenants.tokens');
-        Route::get('users', [AdminUserController::class, 'index'])->name('users.index');
-        Route::patch('users/{user}/role', [AdminUserController::class, 'updateRole'])->name('users.role');
+        Route::patch('tenants/{tenant}/users/{user}/role', [AdminTenantController::class, 'updateUserRole'])->name('tenants.users.role');
         Route::get('activity', AdminActivityController::class)->name('activity.index');
         Route::get('pricing', [AdminPricingController::class, 'index'])->name('pricing.index');
         Route::post('pricing', [AdminPricingController::class, 'store'])->name('pricing.store');

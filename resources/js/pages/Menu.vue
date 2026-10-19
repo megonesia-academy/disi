@@ -13,7 +13,6 @@ import {
     ShieldCheck,
     Tags,
     Tv,
-    Users,
     Wallet,
 } from '@lucide/vue';
 import { computed } from 'vue';
@@ -104,17 +103,11 @@ const groups = computed(() => {
                 },
                 {
                     title: 'Platform tenants',
-                    description: 'Pantau dan suspend tenant subscriber.',
+                    description:
+                        'Pantau tenant, member, dan role admin aplikasi.',
                     href: '/admin/tenants',
                     icon: Building2,
                     color: 'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-950 dark:text-fuchsia-300',
-                },
-                {
-                    title: 'Platform users',
-                    description: 'Kelola role admin aplikasi dan subscriber.',
-                    href: '/admin/users',
-                    icon: Users,
-                    color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300',
                 },
                 {
                     title: 'Activity log',

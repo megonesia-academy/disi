@@ -15,7 +15,6 @@ import {
     Settings,
     ShieldCheck,
     Tags,
-    Users,
     Tv,
     Wallet,
 } from '@lucide/vue';
@@ -130,11 +129,6 @@ const platformNavGroups: NavGroup[] = [
                 title: 'Platform tenants',
                 href: '/admin/tenants',
                 icon: Building2,
-            },
-            {
-                title: 'Platform users',
-                href: '/admin/users',
-                icon: Users,
             },
             {
                 title: 'Activity log',

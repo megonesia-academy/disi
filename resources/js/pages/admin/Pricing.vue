@@ -177,106 +177,109 @@ function save(row: FeaturePrice): void {
             </div>
         </section>
 
-        <section
-            class="overflow-hidden rounded-lg border bg-background shadow-sm"
-        >
-            <div class="overflow-x-auto">
-                <table class="w-full min-w-[980px] text-sm">
-                    <thead class="bg-muted/50 text-left text-muted-foreground">
-                        <tr>
-                            <th class="px-4 py-3 font-medium">Fitur</th>
-                            <th class="px-4 py-3 font-medium">Kind</th>
-                            <th class="px-4 py-3 font-medium">Token cost</th>
-                            <th class="px-4 py-3 font-medium">Free limit</th>
-                            <th class="px-4 py-3 font-medium">Unit</th>
-                            <th class="px-4 py-3 font-medium">Active</th>
-                            <th class="px-4 py-3 text-right font-medium">
-                                Action
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr
-                            v-for="row in rows"
-                            :key="row.id"
-                            class="border-t align-middle"
+        <section class="rounded-lg border bg-background shadow-sm">
+            <div class="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
+                <article
+                    v-for="row in rows"
+                    :key="row.id"
+                    class="flex flex-col rounded-lg border bg-background shadow-sm transition-shadow hover:shadow-md"
+                >
+                    <div
+                        class="flex items-start justify-between gap-3 border-b px-4 py-3"
+                    >
+                        <div class="min-w-0 flex-1">
+                            <Input
+                                v-model="row.label"
+                                class="h-8 text-sm font-semibold"
+                            />
+                            <code
+                                class="mt-1 block truncate text-[11px] text-muted-foreground"
+                            >
+                                {{ row.key }}
+                            </code>
+                        </div>
+                        <div
+                            class="flex shrink-0 flex-wrap items-center justify-end gap-1.5"
                         >
-                            <td class="px-4 py-3">
-                                <Input
-                                    v-model="row.label"
-                                    class="h-8 text-sm"
-                                />
-                                <code
-                                    class="mt-1 block text-[11px] text-muted-foreground"
-                                >
-                                    {{ row.key }}
-                                </code>
-                            </td>
-                            <td class="px-4 py-3">
-                                <span
-                                    class="rounded-full px-2 py-0.5 text-[11px] font-medium"
-                                    :class="
-                                        row.kind === 'subscription'
-                                            ? 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300'
-                                            : 'bg-muted text-muted-foreground'
-                                    "
-                                >
-                                    {{ row.kind }}
-                                </span>
-                            </td>
-                            <td class="px-4 py-3">
+                            <span
+                                class="rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                                :class="
+                                    row.kind === 'subscription'
+                                        ? 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300'
+                                        : 'bg-muted text-muted-foreground'
+                                "
+                            >
+                                {{ row.kind }}
+                            </span>
+                        </div>
+                    </div>
+                    <dl
+                        class="grid grid-cols-2 gap-x-4 gap-y-2 px-4 py-3 text-xs"
+                    >
+                        <div>
+                            <dt class="text-muted-foreground">Token cost</dt>
+                            <dd class="mt-0.5 font-medium">
                                 <Input
                                     v-model="row.token_cost"
                                     type="number"
                                     min="0"
-                                    class="h-8 w-24 text-sm"
+                                    class="h-8 w-full text-sm"
                                 />
-                            </td>
-                            <td class="px-4 py-3">
+                            </dd>
+                        </div>
+                        <div>
+                            <dt class="text-muted-foreground">Free limit</dt>
+                            <dd class="mt-0.5 font-medium">
                                 <Input
                                     v-model="row.free_limit"
                                     type="number"
                                     min="0"
-                                    class="h-8 w-24 text-sm"
+                                    class="h-8 w-full text-sm"
                                 />
-                            </td>
-                            <td class="px-4 py-3">
+                            </dd>
+                        </div>
+                        <div>
+                            <dt class="text-muted-foreground">Unit</dt>
+                            <dd class="mt-0.5 font-medium">
                                 <Input
                                     v-model="row.unit_label"
-                                    class="h-8 w-24 text-sm"
+                                    class="h-8 w-full text-sm"
                                 />
-                            </td>
-                            <td class="px-4 py-3">
+                            </dd>
+                        </div>
+                        <div>
+                            <dt class="text-muted-foreground">Active</dt>
+                            <dd class="mt-0.5 font-medium">
                                 <input
                                     v-model="row.is_active"
                                     type="checkbox"
                                     class="size-4 rounded border-input"
                                 />
-                            </td>
-                            <td class="px-4 py-3 text-right">
-                                <SubmitButton
-                                    type="button"
-                                    size="sm"
-                                    variant="outline"
-                                    title="Simpan perubahan"
-                                    loading-label="Menyimpan..."
-                                    :processing="savingId === row.id"
-                                    @click="save(row)"
-                                >
-                                    <Save class="size-4" /> Save
-                                </SubmitButton>
-                            </td>
-                        </tr>
-                        <tr v-if="rows.length === 0">
-                            <td
-                                colspan="7"
-                                class="px-4 py-10 text-center text-sm text-muted-foreground"
-                            >
-                                Belum ada harga fitur.
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+                            </dd>
+                        </div>
+                    </dl>
+                    <div
+                        class="mt-auto flex flex-wrap justify-end gap-2 border-t bg-muted/20 px-4 py-3"
+                    >
+                        <SubmitButton
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            title="Simpan perubahan"
+                            loading-label="Menyimpan..."
+                            :processing="savingId === row.id"
+                            @click="save(row)"
+                        >
+                            <Save class="size-4" /> Save
+                        </SubmitButton>
+                    </div>
+                </article>
+            </div>
+            <div
+                v-if="rows.length === 0"
+                class="border-t px-4 py-10 text-center text-sm text-muted-foreground"
+            >
+                Belum ada harga fitur.
             </div>
         </section>
 
