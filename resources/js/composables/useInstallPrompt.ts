@@ -62,11 +62,11 @@ export function initializeInstallPrompt(): void {
 
 export function useInstallPrompt(): {
     canInstall: ComputedRef<boolean>;
+    canPrompt: ComputedRef<boolean>;
     install: () => Promise<boolean>;
 } {
-    const canInstall = computed(
-        () => deferredPrompt.value !== null && !isStandalone.value,
-    );
+    const canInstall = computed(() => !isStandalone.value);
+    const canPrompt = computed(() => deferredPrompt.value !== null);
 
     const install = async (): Promise<boolean> => {
         const event = deferredPrompt.value;
@@ -88,5 +88,5 @@ export function useInstallPrompt(): {
         return outcome === 'accepted';
     };
 
-    return { canInstall, install };
+    return { canInstall, canPrompt, install };
 }

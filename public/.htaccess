@@ -23,3 +23,14 @@
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ index.php [L]
 </IfModule>
+
+# PWA files must be revalidated so updates and new installs pick up the latest
+# service worker, manifest, and assets.
+<IfModule mod_headers.c>
+    <FilesMatch "^(sw|player-sw)\.js$">
+        Header set Cache-Control "no-cache, must-revalidate"
+    </FilesMatch>
+    <FilesMatch "^manifest\.json$">
+        Header set Cache-Control "no-cache, must-revalidate"
+    </FilesMatch>
+</IfModule>
