@@ -21,7 +21,7 @@ withDefaults(defineProps<Props>(), {
         <AppSidebar />
         <AppContent
             variant="sidebar"
-            class="app-workspace-surface min-w-0 overflow-x-clip pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0"
+            class="app-workspace-surface min-w-0 overflow-x-clip pb-[calc(4rem+env(safe-area-inset-bottom)+var(--mobile-install-offset,0px))] md:pb-0"
         >
             <slot />
         </AppContent>

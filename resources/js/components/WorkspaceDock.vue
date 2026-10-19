@@ -71,9 +71,29 @@ const positionStyle = computed(() => ({
     top: `${position.value.y}px`,
 }));
 
+function installBannerGap(): number {
+    if (typeof document === 'undefined' || typeof window === 'undefined') {
+        return 0;
+    }
+
+    if (window.innerWidth >= 768) {
+        return 0;
+    }
+
+    const offset = parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue(
+            '--mobile-install-offset',
+        ),
+    );
+
+    return Number.isFinite(offset) ? offset : 0;
+}
+
 function dockBottomGap(): number {
-    // Keep clear of the mobile bottom navigation.
-    return window.innerWidth < 768 ? 84 : EDGE_MARGIN;
+    // Keep clear of the mobile bottom navigation and the install banner.
+    const base = window.innerWidth < 768 ? 84 : EDGE_MARGIN;
+
+    return base + installBannerGap();
 }
 
 function applyCorner(nextCorner: DockCorner): void {
@@ -187,10 +207,12 @@ onMounted(async () => {
     applyCorner(initial);
     ready.value = true;
     window.addEventListener('resize', handleResize);
+    window.addEventListener('disi:install-offset', handleResize);
 });
 
 onUnmounted(() => {
     window.removeEventListener('resize', handleResize);
+    window.removeEventListener('disi:install-offset', handleResize);
 });
 </script>
 
